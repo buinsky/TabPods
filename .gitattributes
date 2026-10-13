@@ -1,0 +1,4 @@
+*.uc.js text eol=lf
+*.md text eol=lf
+*.png binary
+*.gif binary
