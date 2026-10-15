@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TabPods – сворачиваемые группы вкладок для Firefox, в том числе с закреплёнными вкладками</title>
+  <meta name="description" content="TabPods — бесплатный скрипт userChrome.js для Firefox: цветные сворачиваемые группы вкладок, в которых могут быть и закреплённые вкладки. Клик по капсуле прячет всю группу.">
+  <link rel="canonical" href="https://buinsky.github.io/TabPods/ru/">
+  <link rel="alternate" hreflang="en" href="https://buinsky.github.io/TabPods/">
+  <link rel="alternate" hreflang="ru" href="https://buinsky.github.io/TabPods/ru/">
+  <link rel="alternate" hreflang="x-default" href="https://buinsky.github.io/TabPods/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="TabPods – сворачиваемые группы вкладок для Firefox">
+  <meta property="og:description" content="Цветные капсулы в полосе вкладок Firefox прячут группы вкладок, включая закреплённые.">
+  <meta property="og:url" content="https://buinsky.github.io/TabPods/ru/">
+  <meta property="og:image" content="https://buinsky.github.io/TabPods/images/capsule-menu.png">
+  <meta property="og:locale" content="ru_RU">
+  <link rel="stylesheet" href="../style.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "TabPods",
+    "description": "Сворачиваемые группы вкладок для Firefox, в которых могут быть и закреплённые вкладки (скрипт userChrome.js).",
+    "inLanguage": "ru",
+    "applicationCategory": "BrowserApplication",
+    "operatingSystem": "Windows, macOS, Linux",
+    "softwareVersion": "1.0.1",
+    "softwareRequirements": "Firefox с загрузчиком userChrome.js",
+    "license": "https://opensource.org/licenses/MIT",
+    "url": "https://buinsky.github.io/TabPods/ru/",
+    "downloadUrl": "https://github.com/buinsky/TabPods/releases/latest/download/TabPods.uc.js",
+    "codeRepository": "https://github.com/buinsky/TabPods",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+  }
+  </script>
+</head>
+<body>
+  <header>
+    <a class="lang" href="../" hreflang="en" lang="en">English</a>
+    <p class="brand"><span class="pills" aria-hidden="true"><span></span><span></span><span></span></span>TabPods</p>
+    <h1>Сворачиваемые группы вкладок для Firefox, в которых могут быть и закреплённые вкладки</h1>
+    <p class="lead">Перед каждой группой («капсулой») в полосе вкладок стоит маленькая цветная капсула. Клик по ней прячет всю группу, включая закреплённые вкладки, повторный клик возвращает вкладки на место.</p>
+    <div class="actions">
+      <a class="button primary" href="https://github.com/buinsky/TabPods/releases/latest/download/TabPods.uc.js">Скачать TabPods.uc.js</a>
+      <a class="button" href="https://github.com/buinsky/TabPods/blob/main/README.ru.md">Исходники на GitHub</a>
+    </div>
+    <p class="meta">Версия 1.0.1 · бесплатно, открытый код (MIT) · скрипт userChrome.js, а не дополнение</p>
+  </header>
+
+  <main>
+    <figure>
+      <div class="strip"><img src="../images/demo.gif" width="1621" height="55" alt="TabPods в полосе вкладок Firefox: клик по капсуле сворачивает и разворачивает группу вкладок"></div>
+      <figcaption>Клик по капсуле прячет её вкладки и возвращает их обратно.</figcaption>
+    </figure>
+
+    <p>Во встроенные группы вкладок Firefox закреплённые вкладки добавить нельзя. В TabPods можно: в одной капсуле могут быть и закреплённые, и обычные вкладки. Например, рабочую почту можно держать закреплённой и при этом прятать вместе с остальными рабочими вкладками.</p>
+
+    <figure>
+      <div class="strip"><img src="../images/expanded.png" width="1621" height="55" alt="Две развёрнутые капсулы с закреплёнными и обычными вкладками"></div>
+      <figcaption>Развёрнутые капсулы</figcaption>
+    </figure>
+    <figure>
+      <div class="strip"><img src="../images/collapsed.png" width="820" height="55" alt="Те же капсулы в свёрнутом виде"></div>
+      <figcaption>Те же капсулы, свёрнутые</figcaption>
+    </figure>
+
+    <h2>Возможности</h2>
+    <ul>
+      <li>Любые вкладки, <strong>в том числе закреплённые</strong>, объединяются в капсулу.</li>
+      <li>Клик по капсуле сворачивает или разворачивает её. Свёрнутые вкладки действительно скрыты: их пропускают Ctrl+Tab, Ctrl+PgDn и «Закрыть другие вкладки».</li>
+      <li>Если перейти во вкладку свёрнутой капсулы (например, из списка всех вкладок), капсула развернётся. Если свернуть капсулу с текущей вкладкой, Firefox переключится на соседнюю.</li>
+      <li>Перетаскивание: вкладка, брошенная сразу за капсулой или между вкладками капсулы, входит в неё; вытащенная наружу выходит.</li>
+      <li>Новые вкладки, открытые из вкладки капсулы, встают после капсулы, а не внутрь.</li>
+      <li>9 цветов, названия (показываются во всплывающей подсказке).</li>
+      <li>Капсулы, цвета и свёрнутость сохраняются после перезапуска. Вкладка, восстановленная через Ctrl+Shift+T, возвращается в свою капсулу.</li>
+      <li>Интерфейс на английском, русском, украинском, немецком, французском, испанском, итальянском, португальском (Бразилия), польском, японском и китайском (упрощённом и традиционном).</li>
+      <li>Работает как с <a href="https://onemen.github.io/tabmixplus-docs/">Tab Mix Plus</a>, так и без него.</li>
+    </ul>
+
+    <h2>Как пользоваться</h2>
+    <ul>
+      <li><strong>Создать капсулу:</strong> выделите вкладки (Ctrl+клик), правый клик по вкладке → <strong>Капсула → Новая капсула</strong>.</li>
+      <li><strong>Добавить вкладки:</strong> правый клик → <strong>Капсула → Добавить в «…»</strong> или перетащите их в капсулу.</li>
+      <li><strong>Убрать вкладки:</strong> правый клик → <strong>Капсула → Убрать из капсулы</strong> или вытащите их.</li>
+      <li><strong>Свернуть / развернуть:</strong> клик по капсуле.</li>
+      <li><strong>Переименовать, сменить цвет, расформировать, закрыть все вкладки капсулы, свернуть или развернуть все капсулы:</strong> правый клик по капсуле.</li>
+    </ul>
+    <div class="shots">
+      <img src="../images/capsule-menu.png" width="1000" height="470" alt="Контекстное меню капсулы: свернуть, переименовать, цвет, свернуть все капсулы, расформировать, закрыть вкладки">
+      <img src="../images/tab-menu.png" width="860" height="810" alt="Контекстное меню вкладки с подменю «Капсула»: новая капсула, добавить в капсулу, убрать из капсулы">
+    </div>
+
+    <h2>Установка</h2>
+    <p>Дополнения Firefox (WebExtensions) не могут так менять полосу вкладок, поэтому TabPods — скрипт <em>userChrome.js</em>: небольшой JavaScript-файл, который работает внутри интерфейса Firefox. Для таких скриптов нужен загрузчик, его ставят один раз.</p>
+    <ol>
+      <li><strong>Установите загрузчик userChrome.js.</strong> TabPods проверен с загрузчиком <a href="https://github.com/onemen/firefox-scripts">onemen/firefox-scripts</a> — тем же, что нужен Tab Mix Plus. Если у вас уже стоит Tab Mix Plus, загрузчик уже есть.</li>
+      <li><strong>Добавьте TabPods.</strong> Откройте папку профиля (<code>about:support</code> → <em>Папка профиля</em> → <em>Открыть папку</em>), откройте в ней папку <code>chrome</code> (если её нет, создайте) и сохраните туда <a href="https://github.com/buinsky/TabPods/releases/latest/download/TabPods.uc.js"><code>TabPods.uc.js</code></a>.</li>
+      <li><strong>Перезапустите Firefox.</strong> Если в контекстном меню вкладки появился пункт <strong>Капсула</strong>, всё работает.</li>
+    </ol>
+    <p>Подробная инструкция по установке загрузчика, обновлению и удалению — в <a href="https://github.com/buinsky/TabPods/blob/main/README.ru.md#установка">README</a>.</p>
+    <p class="note">Загрузчик выполняет скрипты с полными правами браузера. Кладите в папку <code>chrome</code> только скрипты, которым доверяете.</p>
+
+    <h2>Ограничения</h2>
+    <ul>
+      <li>Проверено на Firefox 158 под Windows 11, с Tab Mix Plus и без него. Поддерживается только горизонтальная полоса вкладок, вертикальные вкладки — нет.</li>
+      <li>Капсулы принадлежат окну. Вкладка, перенесённая в другое окно, выходит из капсулы.</li>
+      <li>Вкладки во встроенных группах Firefox и в разделённом экране (split view) в капсулы не добавляются.</li>
+      <li>Это скрипт userChrome.js, поэтому крупное обновление Firefox может его сломать. Если так случится, <a href="https://github.com/buinsky/TabPods/issues">создайте issue</a>.</li>
+    </ul>
+  </main>
+
+  <footer>
+    TabPods · <a href="https://github.com/buinsky/TabPods">GitHub</a> · <a href="https://github.com/buinsky/TabPods/releases">Релизы</a> · <a href="https://github.com/buinsky/TabPods/blob/main/LICENSE">Лицензия MIT</a>
+  </footer>
+</body>
+</html>

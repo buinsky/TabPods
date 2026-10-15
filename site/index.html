@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TabPods – collapsible tab groups for Firefox that can hold pinned tabs</title>
+  <meta name="description" content="TabPods is a free userChrome.js script for Firefox: collapsible, colored tab groups that can also hold pinned tabs. Click a capsule to fold the whole group away, pinned tabs included.">
+  <link rel="canonical" href="https://buinsky.github.io/TabPods/">
+  <link rel="alternate" hreflang="en" href="https://buinsky.github.io/TabPods/">
+  <link rel="alternate" hreflang="ru" href="https://buinsky.github.io/TabPods/ru/">
+  <link rel="alternate" hreflang="x-default" href="https://buinsky.github.io/TabPods/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="TabPods – collapsible tab groups for Firefox that can hold pinned tabs">
+  <meta property="og:description" content="Colored capsules in the Firefox tab strip that fold groups of tabs away, pinned tabs included.">
+  <meta property="og:url" content="https://buinsky.github.io/TabPods/">
+  <meta property="og:image" content="https://buinsky.github.io/TabPods/images/capsule-menu.png">
+  <link rel="stylesheet" href="style.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "TabPods",
+    "description": "Collapsible tab groups for Firefox that can also hold pinned tabs (userChrome.js script).",
+    "applicationCategory": "BrowserApplication",
+    "operatingSystem": "Windows, macOS, Linux",
+    "softwareVersion": "1.0.1",
+    "softwareRequirements": "Firefox with a userChrome.js loader",
+    "license": "https://opensource.org/licenses/MIT",
+    "url": "https://buinsky.github.io/TabPods/",
+    "downloadUrl": "https://github.com/buinsky/TabPods/releases/latest/download/TabPods.uc.js",
+    "codeRepository": "https://github.com/buinsky/TabPods",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+  }
+  </script>
+</head>
+<body>
+  <header>
+    <a class="lang" href="ru/" hreflang="ru" lang="ru">Русский</a>
+    <p class="brand"><span class="pills" aria-hidden="true"><span></span><span></span><span></span></span>TabPods</p>
+    <h1>Collapsible tab groups for Firefox that can hold pinned tabs</h1>
+    <p class="lead">TabPods puts a small colored capsule in front of each group of tabs. Click the capsule and the whole group folds away, pinned tabs included; click it again and the tabs come back.</p>
+    <div class="actions">
+      <a class="button primary" href="https://github.com/buinsky/TabPods/releases/latest/download/TabPods.uc.js">Download TabPods.uc.js</a>
+      <a class="button" href="https://github.com/buinsky/TabPods">Source on GitHub</a>
+    </div>
+    <p class="meta">Version 1.0.1 · free and open source (MIT) · a userChrome.js script, not an add-on</p>
+  </header>
+
+  <main>
+    <figure>
+      <div class="strip"><img src="images/demo.gif" width="1621" height="55" alt="TabPods in the Firefox tab strip: clicking a capsule collapses and expands a group of tabs"></div>
+      <figcaption>Clicking a capsule folds its tabs away and brings them back.</figcaption>
+    </figure>
+
+    <p>Firefox's built-in tab groups cannot contain pinned tabs. TabPods can: a pod may mix pinned and regular tabs, so you can keep, say, your work mail pinned and still tuck it away together with the rest of your work tabs.</p>
+
+    <figure>
+      <div class="strip"><img src="images/expanded.png" width="1621" height="55" alt="Two expanded pods with pinned and regular tabs"></div>
+      <figcaption>Expanded pods</figcaption>
+    </figure>
+    <figure>
+      <div class="strip"><img src="images/collapsed.png" width="820" height="55" alt="The same pods collapsed into two capsules"></div>
+      <figcaption>The same pods collapsed</figcaption>
+    </figure>
+
+    <h2>Features</h2>
+    <ul>
+      <li>Group any tabs into a pod, <strong>pinned tabs included</strong>.</li>
+      <li>Click the capsule to collapse or expand the pod. Collapsed tabs are really hidden: they are skipped by Ctrl+Tab, Ctrl+PgDn and “Close Other Tabs”.</li>
+      <li>Switching to a tab of a collapsed pod (for example from the <em>List all tabs</em> menu or by reopening it) expands the pod. Collapsing the pod of the current tab switches to another tab.</li>
+      <li>Drag and drop: drop a tab right after a capsule or between two tabs of a pod and it joins the pod; drag a tab out and it leaves.</li>
+      <li>New tabs opened from a tab of a pod are placed after the pod, not inside it.</li>
+      <li>9 colors, optional names (shown in the tooltip).</li>
+      <li>Pods, colors and the collapsed state survive a browser restart. Reopening a closed tab (Ctrl+Shift+T) puts it back into its pod.</li>
+      <li>Interface in English, Russian, Ukrainian, German, French, Spanish, Italian, Portuguese (Brazil), Polish, Japanese and Chinese (Simplified and Traditional).</li>
+      <li>Works with or without <a href="https://onemen.github.io/tabmixplus-docs/">Tab Mix Plus</a>.</li>
+    </ul>
+
+    <h2>Usage</h2>
+    <ul>
+      <li><strong>Create a pod:</strong> select one or more tabs (Ctrl+click), right-click a tab → <strong>Pod → New pod</strong>.</li>
+      <li><strong>Add tabs:</strong> right-click → <strong>Pod → Add to “…”</strong>, or drag the tabs into the pod.</li>
+      <li><strong>Remove tabs:</strong> right-click → <strong>Pod → Remove from pod</strong>, or drag them out.</li>
+      <li><strong>Collapse / expand:</strong> left-click the capsule.</li>
+      <li><strong>Rename, recolor, ungroup, close all tabs of the pod, collapse or expand all pods:</strong> right-click the capsule.</li>
+    </ul>
+    <div class="shots">
+      <img src="images/capsule-menu.png" width="1000" height="470" alt="Capsule context menu: collapse, rename, color, collapse all pods, ungroup, close tabs">
+      <img src="images/tab-menu.png" width="860" height="810" alt="Tab context menu with the Pod submenu: new pod, add to a pod, remove from pod">
+    </div>
+
+    <h2>Installation</h2>
+    <p>Firefox add-ons (WebExtensions) cannot change the tab strip like this, so TabPods is a <em>userChrome.js</em> script: a small JavaScript file that runs inside the Firefox user interface. Firefox needs a script loader for that, installed once.</p>
+    <ol>
+      <li><strong>Install a userChrome.js loader.</strong> TabPods is tested with <a href="https://github.com/onemen/firefox-scripts">onemen/firefox-scripts</a>, the loader Tab Mix Plus uses. If you already use Tab Mix Plus, you already have it.</li>
+      <li><strong>Add TabPods.</strong> Open your profile folder (<code>about:support</code> → <em>Profile Folder</em> → <em>Open Folder</em>), open the <code>chrome</code> folder inside it (create it if there is none) and save <a href="https://github.com/buinsky/TabPods/releases/latest/download/TabPods.uc.js"><code>TabPods.uc.js</code></a> there.</li>
+      <li><strong>Restart Firefox.</strong> Right-click a tab: if you see a <strong>Pod</strong> item, TabPods is working.</li>
+    </ol>
+    <p>Step-by-step instructions for the loader, updating and uninstalling are in the <a href="https://github.com/buinsky/TabPods#installation">README</a>.</p>
+    <p class="note">The loader runs scripts with full browser privileges. Only put scripts you trust into the <code>chrome</code> folder.</p>
+
+    <h2>Notes and limitations</h2>
+    <ul>
+      <li>Tested with Firefox 158 on Windows 11, with and without Tab Mix Plus. Only the horizontal tab strip is supported, not vertical tabs.</li>
+      <li>Pods belong to a window. A tab moved to another window leaves its pod.</li>
+      <li>Tabs inside Firefox's own tab groups or split views cannot be put into pods.</li>
+      <li>Since this is a userChrome.js script, a big Firefox update can break it. Please <a href="https://github.com/buinsky/TabPods/issues">open an issue</a> if it does.</li>
+    </ul>
+  </main>
+
+  <footer>
+    TabPods · <a href="https://github.com/buinsky/TabPods">GitHub</a> · <a href="https://github.com/buinsky/TabPods/releases">Releases</a> · <a href="https://github.com/buinsky/TabPods/blob/main/LICENSE">MIT License</a>
+  </footer>
+</body>
+</html>
