@@ -2,7 +2,7 @@
 // @name            TabPods
 // @description     Collapsible colored tab groups (pods) that can also hold pinned tabs
 // @include         main
-// @version         1.0.0
+// @version         1.0.1
 // @author          buinsky
 // @homepageURL     https://github.com/buinsky/TabPods
 // ==/UserScript==
@@ -550,14 +550,21 @@
   // ---------------------------------------------------------------------------
   // Tab strip
 
+  // The descriptor of the property name of obj, looked up along its prototypes.
+  function findProperty(obj, name) {
+    for (let proto = obj; proto; proto = Object.getPrototypeOf(proto)) {
+      const desc = Object.getOwnPropertyDescriptor(proto, name);
+      if (desc) {
+        return {proto, desc};
+      }
+    }
+    throw new Error(`TabPods: no ${name} property`);
+  }
+
   // Every child of the tab containers is taken for a tab, so keep the capsules
   // out of allTabs (and with it gBrowser.tabs, visibleTabs, ...).
   function patchAllTabs() {
-    let proto = Object.getPrototypeOf(tabs);
-    while (proto && !Object.getOwnPropertyDescriptor(proto, "allTabs")) {
-      proto = Object.getPrototypeOf(proto);
-    }
-    const getAllTabs = Object.getOwnPropertyDescriptor(proto, "allTabs").get;
+    const getAllTabs = findProperty(tabs, "allTabs").desc.get;
     let source = null, filtered = null;
     Object.defineProperty(tabs, "allTabs", {
       configurable: true,
@@ -568,6 +575,59 @@
           filtered = all.filter(el => !el.classList.contains("tabpods-capsule"));
         }
         return filtered;
+      },
+    });
+  }
+
+  // Firefox takes the first gBrowser.pinnedTabCount items of dragAndDropElements
+  // for the pinned tabs (dragging tabs, placing new and adopted ones), but that
+  // list leaves hidden tabs out: Firefox itself never hides a pinned tab. With
+  // the pinned tabs of a collapsed pod the unpinned tabs then got taken for
+  // pinned ones and could not be dragged. So put the hidden pinned tabs into
+  // the list, first: they have no place on the screen, and dragging finds the
+  // item under the pointer with a binary search over the list.
+  function patchDragAndDropElements() {
+    const getElements = findProperty(tabs, "dragAndDropElements").desc.get;
+    let source = null, patched = null;
+    Object.defineProperty(tabs, "dragAndDropElements", {
+      configurable: true,
+      get() {
+        const list = getElements.call(this);
+        if (list !== source) {
+          source = list;
+          const hidden = this.allTabs.filter(t => t.pinned && t.hidden);
+          patched = hidden.length ? [...hidden, ...list] : list;
+          if (hidden.length) {
+            patched.forEach((el, i) => (el.elementIndex = i));
+          }
+        }
+        return patched;
+      },
+    });
+
+    // The elementIndex of a hidden tab throws in Firefox.
+    const {proto, desc} = findProperty(gBrowser.tabs[0], "elementIndex");
+    Object.defineProperty(proto, "elementIndex", {
+      ...desc,
+      get() {
+        if (this.pinned && this.hidden) {
+          const i = this.container.dragAndDropElements.indexOf(this);
+          if (i >= 0) {
+            return i;
+          }
+        }
+        return desc.get.call(this);
+      },
+    });
+
+    // A hidden tab is at screenX 0, which can be where the tab strip starts
+    // too; the search could then stop at a hidden tab. Put the hidden pinned
+    // tabs right before the tab strip, as they are first in the list.
+    const screenX = findProperty(proto, "screenX").desc;
+    Object.defineProperty(proto, "screenX", {
+      configurable: true,
+      get() {
+        return this.pinned && this.hidden ? this.container.screenX - 1 : screenX.get.call(this);
       },
     });
   }
@@ -1176,6 +1236,7 @@
   function init() {
     tabs = gBrowser.tabContainer;
     patchAllTabs();
+    patchDragAndDropElements();
     // A sheet of the browser document itself: a data: sheet loaded through
     // windowUtils drops chrome-only properties such as -moz-window-dragging.
     const sheet = new CSSStyleSheet();
