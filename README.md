@@ -135,7 +135,7 @@ language, create the string preference `extensions.tabpods.locale` in
 
 ## Notes and limitations
 
-- Tested with Firefox 157 on Windows 11, with and without Tab Mix Plus. Only the
+- Tested with Firefox 158 on Windows 11, with and without Tab Mix Plus. Only the
   horizontal tab strip is supported, not vertical tabs.
 - Pods belong to a window. A tab moved to another window leaves its pod.
 - Tabs inside Firefox's own tab groups or split views cannot be put into pods.
