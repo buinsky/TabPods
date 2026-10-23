@@ -29,8 +29,14 @@ still tuck it away together with the rest of your work tabs.
   and it joins the pod; drag a tab out and it leaves.
 - New tabs opened from a tab of a pod are placed after the pod, not inside it.
 - 9 colors, optional names (shown in the tooltip).
-- Pods, colors and the collapsed state survive a browser restart. Reopening a
-  closed tab (Ctrl+Shift+T) puts it back into its pod.
+- Unloading of inactive tabs, set per pod: a tab that was not switched to and
+  played no audio or video for 10 minutes, 30 minutes, 1 hour or 6 hours is
+  unloaded to free memory, pinned and collapsed tabs included. It stays in its
+  pod and loads again when you switch to it. Tabs that Firefox does not let
+  unload, such as `about:config` or a page asking to stay because of unsaved
+  input, are left alone.
+- Pods, colors, unloading and the collapsed state survive a browser restart.
+  Reopening a closed tab (Ctrl+Shift+T) puts it back into its pod.
 - Interface in English, Russian, Ukrainian, German, French, Spanish, Italian,
   Portuguese (Brazil), Polish, Japanese and Chinese (Simplified and
   Traditional).
@@ -44,8 +50,8 @@ still tuck it away together with the rest of your work tabs.
   pod.
 - **Remove tabs:** right-click → **Pod → Remove from pod**, or drag them out.
 - **Collapse / expand:** left-click the capsule.
-- **Rename, recolor, ungroup, close all tabs of the pod, collapse or expand all
-  pods:** right-click the capsule.
+- **Rename, recolor, unload inactive tabs, ungroup, close all tabs of the pod,
+  collapse or expand all pods:** right-click the capsule.
 
 ![Capsule menu](images/capsule-menu.png)
 
@@ -139,6 +145,10 @@ language, create the string preference `extensions.tabpods.locale` in
   horizontal tab strip is supported, not vertical tabs.
 - Pods belong to a window. A tab moved to another window leaves its pod.
 - Tabs inside Firefox's own tab groups or split views cannot be put into pods.
+- Unloading sees only the media Firefox reports: a video playing without sound
+  does not keep its tab loaded. Tabs are checked once a minute. Unloaded tabs
+  look like tabs not restored yet after a restart; to dim them, set
+  `browser.tabs.fadeOutUnloadedTabs` to `true` in `about:config`.
 - A pod with pinned and regular tabs sits on the border between the two. If
   another pod is already there, the pinned part of the new one is shown
   separately, with a capsule of its own; both capsules control the same pod.

@@ -2,7 +2,7 @@
 // @name            TabPods
 // @description     Collapsible colored tab groups (pods) that can also hold pinned tabs
 // @include         main
-// @version         1.0.1
+// @version         1.1.0
 // @author          buinsky
 // @homepageURL     https://github.com/buinsky/TabPods
 // ==/UserScript==
@@ -20,6 +20,10 @@
 // Pods are stored per window with SessionStore (window value WIN_KEY), the pod
 // of a tab is stored as tab value TAB_KEY and mirrored to the "tabpods"
 // attribute, which is what the rest of the script reads.
+//
+// A pod can unload its tabs once they were neither selected nor played audio
+// or video for a while. Unloading goes through gBrowser.discardBrowser(), as
+// when Firefox unloads tabs itself on low memory.
 
 (function () {
   "use strict";
@@ -39,6 +43,10 @@
     ["gray", "#9ba1a6"],
   ];
   const COLOR_IDS = COLORS.map(c => c[0]);
+
+  // Minutes a tab of a pod may stay inactive before it is unloaded; 0: never.
+  const UNLOAD_TIMES = [0, 10, 30, 60, 360];
+  const UNLOAD_CHECK_INTERVAL = 60 * 1000;
 
   // ---------------------------------------------------------------------------
   // Localization
@@ -60,6 +68,10 @@
       rename: "Rename…",
       renamePrompt: "Pod name:",
       color: "Color",
+      unload: "Unload inactive tabs",
+      unloadNever: "Never",
+      unloadMinutes: {one: "After {n} minute", other: "After {n} minutes"},
+      unloadHours: {one: "After {n} hour", other: "After {n} hours"},
       collapseAll: "Collapse all pods",
       expandAll: "Expand all pods",
       ungroup: "Ungroup pod",
@@ -80,6 +92,10 @@
       rename: "Переименовать…",
       renamePrompt: "Название капсулы:",
       color: "Цвет",
+      unload: "Выгружать неактивные вкладки",
+      unloadNever: "Никогда",
+      unloadMinutes: {one: "Через {n} минуту", few: "Через {n} минуты", many: "Через {n} минут", other: "Через {n} минуты"},
+      unloadHours: {one: "Через {n} час", few: "Через {n} часа", many: "Через {n} часов", other: "Через {n} часа"},
       collapseAll: "Свернуть все капсулы",
       expandAll: "Развернуть все капсулы",
       ungroup: "Расформировать капсулу",
@@ -100,6 +116,10 @@
       rename: "Перейменувати…",
       renamePrompt: "Назва капсули:",
       color: "Колір",
+      unload: "Вивантажувати неактивні вкладки",
+      unloadNever: "Ніколи",
+      unloadMinutes: {one: "Через {n} хвилину", few: "Через {n} хвилини", many: "Через {n} хвилин", other: "Через {n} хвилини"},
+      unloadHours: {one: "Через {n} годину", few: "Через {n} години", many: "Через {n} годин", other: "Через {n} години"},
       collapseAll: "Згорнути всі капсули",
       expandAll: "Розгорнути всі капсули",
       ungroup: "Розформувати капсулу",
@@ -120,6 +140,10 @@
       rename: "Umbenennen…",
       renamePrompt: "Name der Kapsel:",
       color: "Farbe",
+      unload: "Inaktive Tabs entladen",
+      unloadNever: "Nie",
+      unloadMinutes: {one: "Nach {n} Minute", other: "Nach {n} Minuten"},
+      unloadHours: {one: "Nach {n} Stunde", other: "Nach {n} Stunden"},
       collapseAll: "Alle Kapseln einklappen",
       expandAll: "Alle Kapseln ausklappen",
       ungroup: "Kapsel auflösen",
@@ -140,6 +164,10 @@
       rename: "Renommer…",
       renamePrompt: "Nom de la capsule :",
       color: "Couleur",
+      unload: "Décharger les onglets inactifs",
+      unloadNever: "Jamais",
+      unloadMinutes: {one: "Après {n} minute", other: "Après {n} minutes"},
+      unloadHours: {one: "Après {n} heure", other: "Après {n} heures"},
       collapseAll: "Réduire toutes les capsules",
       expandAll: "Développer toutes les capsules",
       ungroup: "Dissoudre la capsule",
@@ -160,6 +188,10 @@
       rename: "Renombrar…",
       renamePrompt: "Nombre de la cápsula:",
       color: "Color",
+      unload: "Descargar pestañas inactivas",
+      unloadNever: "Nunca",
+      unloadMinutes: {one: "Después de {n} minuto", other: "Después de {n} minutos"},
+      unloadHours: {one: "Después de {n} hora", other: "Después de {n} horas"},
       collapseAll: "Contraer todas las cápsulas",
       expandAll: "Expandir todas las cápsulas",
       ungroup: "Desagrupar cápsula",
@@ -180,6 +212,10 @@
       rename: "Rinomina…",
       renamePrompt: "Nome della capsula:",
       color: "Colore",
+      unload: "Libera la memoria delle schede inattive",
+      unloadNever: "Mai",
+      unloadMinutes: {one: "Dopo {n} minuto", other: "Dopo {n} minuti"},
+      unloadHours: {one: "Dopo {n} ora", other: "Dopo {n} ore"},
       collapseAll: "Comprimi tutte le capsule",
       expandAll: "Espandi tutte le capsule",
       ungroup: "Sciogli capsula",
@@ -200,6 +236,10 @@
       rename: "Renomear…",
       renamePrompt: "Nome da cápsula:",
       color: "Cor",
+      unload: "Descarregar abas inativas",
+      unloadNever: "Nunca",
+      unloadMinutes: {one: "Após {n} minuto", other: "Após {n} minutos"},
+      unloadHours: {one: "Após {n} hora", other: "Após {n} horas"},
       collapseAll: "Recolher todas as cápsulas",
       expandAll: "Expandir todas as cápsulas",
       ungroup: "Desagrupar cápsula",
@@ -220,6 +260,10 @@
       rename: "Zmień nazwę…",
       renamePrompt: "Nazwa kapsuły:",
       color: "Kolor",
+      unload: "Usuwaj nieaktywne karty z pamięci",
+      unloadNever: "Nigdy",
+      unloadMinutes: {one: "Po {n} minucie", other: "Po {n} minutach"},
+      unloadHours: {one: "Po {n} godzinie", other: "Po {n} godzinach"},
       collapseAll: "Zwiń wszystkie kapsuły",
       expandAll: "Rozwiń wszystkie kapsuły",
       ungroup: "Rozgrupuj kapsułę",
@@ -240,6 +284,10 @@
       rename: "名前を変更…",
       renamePrompt: "カプセルの名前:",
       color: "色",
+      unload: "非アクティブなタブをアンロード",
+      unloadNever: "しない",
+      unloadMinutes: {other: "{n} 分後"},
+      unloadHours: {other: "{n} 時間後"},
       collapseAll: "すべてのカプセルを折りたたむ",
       expandAll: "すべてのカプセルを展開する",
       ungroup: "カプセルを解除",
@@ -260,6 +308,10 @@
       rename: "重命名…",
       renamePrompt: "胶囊名称：",
       color: "颜色",
+      unload: "自动卸载闲置标签页",
+      unloadNever: "从不",
+      unloadMinutes: {other: "{n} 分钟后"},
+      unloadHours: {other: "{n} 小时后"},
       collapseAll: "折叠所有胶囊",
       expandAll: "展开所有胶囊",
       ungroup: "解散胶囊",
@@ -280,6 +332,10 @@
       rename: "重新命名…",
       renamePrompt: "膠囊名稱：",
       color: "顏色",
+      unload: "自動卸載閒置分頁",
+      unloadNever: "永不",
+      unloadMinutes: {other: "{n} 分鐘後"},
+      unloadHours: {other: "{n} 小時後"},
       collapseAll: "摺疊所有膠囊",
       expandAll: "展開所有膠囊",
       ungroup: "解散膠囊",
@@ -325,6 +381,13 @@
 
   const colorName = id => (STRINGS[LOCALE].colors ?? STRINGS.en.colors)[id] ?? id;
 
+  function unloadTimeName(minutes) {
+    if (!minutes) {
+      return t("unloadNever");
+    }
+    return minutes % 60 ? t("unloadMinutes", {n: minutes}) : t("unloadHours", {n: minutes / 60});
+  }
+
   const CSS = `
     ${COLORS.map(([id, hex]) => `[tabpods-color="${id}"] { --tabpods-color: ${hex}; }`).join("\n")}
 
@@ -361,7 +424,7 @@
   /** gBrowser.tabContainer, set in init(): the script runs before gBrowser exists. */
   let tabs;
 
-  /** @type {Map<string, {id: string, color: string, name: string, collapsed: boolean}>} */
+  /** @type {Map<string, {id: string, color: string, name: string, collapsed: boolean, unloadAfter: number}>} */
   const pods = new Map();
   /** Pods whose last tab was closed, kept so "Reopen closed tab" can bring them back. */
   const removedPods = new Map();
@@ -373,6 +436,7 @@
   const movedTabs = new Set();
   const pinToggledTabs = new Set();
   const openedTabs = new WeakSet(); // new tabs, not yet handled by onTabOpen
+  const lastPlayed = new WeakMap(); // tab -> last time it played media
   let stripObserver = null;
   let updateTimer = 0;
 
@@ -433,6 +497,7 @@
           color: COLOR_IDS.includes(p.color) ? p.color : COLOR_IDS[0],
           name: typeof p.name == "string" ? p.name : "",
           collapsed: !!p.collapsed,
+          unloadAfter: UNLOAD_TIMES.includes(p.unloadAfter) ? p.unloadAfter : 0,
         });
       }
     }
@@ -543,6 +608,59 @@
       } else if (members.some(t => !t.hidden)) {
         members.forEach(hideTab);
         tabs._updateCloseButtons();
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Unloading
+
+  // A tab that plays audio or video (in a tab muted by Firefox too), shows a
+  // picture-in-picture window or shares the camera, microphone or screen.
+  // Video playing without sound goes unnoticed: Firefox does not report it.
+  function mediaActive(tab) {
+    return (
+      tab.soundPlaying ||
+      tab.pictureinpicture ||
+      tab.hasAttribute("sharing") ||
+      !!tab.linkedBrowser.browsingContext?.mediaController?.isPlaying
+    );
+  }
+
+  // Whether a loaded tab of a pod with an unload time was neither selected
+  // nor played media for that long. tab.lastAccessed is the time the tab was
+  // last selected or left, or opened if it never was.
+  function shouldUnload(tab, now) {
+    if (!tab.linkedPanel || tab.hasAttribute("pending") || tab.closing) {
+      return false;
+    }
+    if (mediaActive(tab)) {
+      lastPlayed.set(tab, now);
+      return false;
+    }
+    const minutes = podOf(tab)?.unloadAfter;
+    return (
+      !!minutes &&
+      !tab.selected &&
+      !tab.undiscardable &&
+      now - Math.max(tab.lastAccessed, lastPlayed.get(tab) || 0) >= minutes * 60 * 1000
+    );
+  }
+
+  // Unloads the inactive tabs, the way Firefox does on low memory. Without
+  // forcing, discardBrowser() keeps the tabs that cannot be unloaded: about:
+  // pages, tabs with an open dialog or with a page asking to stay.
+  async function unloadIdleTabs() {
+    const idle = liveTabs().filter(tab => shouldUnload(tab, Date.now()));
+    // Let session restore save the latest form data and scroll positions.
+    await Promise.allSettled(idle.map(tab => gBrowser.prepareDiscardBrowser(tab)));
+    for (const tab of idle) {
+      try {
+        if (shouldUnload(tab, Date.now())) {
+          gBrowser.discardBrowser(tab);
+        }
+      } catch (e) {
+        console.error("TabPods: cannot unload a tab", e);
       }
     }
   }
@@ -936,7 +1054,7 @@
     if (!tabList.length) {
       return null;
     }
-    const pod = {id: newPodId(), color: nextColor(), name: "", collapsed: false};
+    const pod = {id: newPodId(), color: nextColor(), name: "", collapsed: false, unloadAfter: 0};
     pods.set(pod.id, pod);
     for (const tab of tabList) {
       assign(tab, pod);
@@ -1023,6 +1141,12 @@
     saveState();
   }
 
+  function setUnloadAfter(pod, minutes) {
+    pod.unloadAfter = minutes;
+    saveState();
+    unloadIdleTabs();
+  }
+
   // ---------------------------------------------------------------------------
   // Menus
 
@@ -1045,6 +1169,15 @@
     }
     item.addEventListener("command", command);
     return item;
+  }
+
+  function subMenu(label, items) {
+    const menu = document.createXULElement("menu");
+    menu.setAttribute("label", label);
+    const popup = document.createXULElement("menupopup");
+    popup.append(...items);
+    menu.append(popup);
+    return menu;
   }
 
   // Pods in the order of the tab strip.
@@ -1123,20 +1256,29 @@
       popup.append(menuItem(t(pod.collapsed ? "expand" : "collapse"), () => toggle(pod)));
       popup.append(menuItem(t("rename"), () => renamePod(pod)));
 
-      const colorMenu = document.createXULElement("menu");
-      colorMenu.setAttribute("label", t("color"));
-      const colorPopup = document.createXULElement("menupopup");
-      for (const id of COLOR_IDS) {
-        colorPopup.append(
-          menuItem(colorName(id), () => setColor(pod, id), {
-            class: "menuitem-iconic",
-            image: colorIcon(id),
-            disabled: id == pod.color,
-          })
-        );
-      }
-      colorMenu.append(colorPopup);
-      popup.append(colorMenu);
+      popup.append(
+        subMenu(
+          t("color"),
+          COLOR_IDS.map(id =>
+            menuItem(colorName(id), () => setColor(pod, id), {
+              class: "menuitem-iconic",
+              image: colorIcon(id),
+              disabled: id == pod.color,
+            })
+          )
+        )
+      );
+      popup.append(
+        subMenu(
+          t("unload"),
+          UNLOAD_TIMES.map(minutes =>
+            menuItem(unloadTimeName(minutes), () => setUnloadAfter(pod, minutes), {
+              type: "radio",
+              checked: minutes == pod.unloadAfter,
+            })
+          )
+        )
+      );
 
       popup.append(document.createXULElement("menuseparator"));
       popup.append(menuItem(t("collapseAll"), () => orderedPods().forEach(p => !p.collapsed && collapse(p))));
@@ -1218,6 +1360,13 @@
     scheduleUpdate();
   }
 
+  // Catches media that started and stopped between two checks for idle tabs.
+  function onTabAttrModified(e) {
+    if (e.detail.changed.includes("soundplaying")) {
+      lastPlayed.set(e.target, Date.now());
+    }
+  }
+
   function onTabRestoring(e) {
     readTab(e.target);
     scheduleUpdate();
@@ -1261,12 +1410,14 @@
     tabs.addEventListener("TabPinned", onTabPinToggled);
     tabs.addEventListener("TabUnpinned", onTabPinToggled);
     tabs.addEventListener("SSTabRestoring", onTabRestoring);
+    tabs.addEventListener("TabAttrModified", onTabAttrModified);
     window.addEventListener("SSWindowStateBusy", () => (restoring = true));
     window.addEventListener("SSWindowStateReady", onWindowRestored);
 
     onWindowRestored();
+    setInterval(unloadIdleTabs, UNLOAD_CHECK_INTERVAL);
 
-    window.TabPods = {pods, createPod, addToPod, removeFromPods, ungroupPod, collapse, expand, toggle, setColor, update};
+    window.TabPods = {pods, createPod, addToPod, removeFromPods, ungroupPod, collapse, expand, toggle, setColor, setUnloadAfter, unloadIdleTabs, update};
   }
 
   if (gBrowserInit.delayedStartupFinished) {

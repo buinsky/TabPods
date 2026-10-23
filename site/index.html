@@ -71,7 +71,8 @@
       <li>Drag and drop: drop a tab right after a capsule or between two tabs of a pod and it joins the pod; drag a tab out and it leaves.</li>
       <li>New tabs opened from a tab of a pod are placed after the pod, not inside it.</li>
       <li>9 colors, optional names (shown in the tooltip).</li>
-      <li>Pods, colors and the collapsed state survive a browser restart. Reopening a closed tab (Ctrl+Shift+T) puts it back into its pod.</li>
+      <li>Unloading of inactive tabs, set per pod: a tab that was not switched to and played no audio or video for 10 minutes, 30 minutes, 1 hour or 6 hours is unloaded to free memory, pinned and collapsed tabs included. It stays in its pod and loads again when you switch to it. Tabs that Firefox does not let unload, such as <code>about:config</code> or a page asking to stay because of unsaved input, are left alone.</li>
+      <li>Pods, colors, unloading and the collapsed state survive a browser restart. Reopening a closed tab (Ctrl+Shift+T) puts it back into its pod.</li>
       <li>Interface in English, Russian, Ukrainian, German, French, Spanish, Italian, Portuguese (Brazil), Polish, Japanese and Chinese (Simplified and Traditional).</li>
       <li>Works with or without <a href="https://onemen.github.io/tabmixplus-docs/">Tab Mix Plus</a>.</li>
     </ul>
@@ -82,7 +83,7 @@
       <li><strong>Add tabs:</strong> right-click → <strong>Pod → Add to “…”</strong>, or drag the tabs into the pod.</li>
       <li><strong>Remove tabs:</strong> right-click → <strong>Pod → Remove from pod</strong>, or drag them out.</li>
       <li><strong>Collapse / expand:</strong> left-click the capsule.</li>
-      <li><strong>Rename, recolor, ungroup, close all tabs of the pod, collapse or expand all pods:</strong> right-click the capsule.</li>
+      <li><strong>Rename, recolor, unload inactive tabs, ungroup, close all tabs of the pod, collapse or expand all pods:</strong> right-click the capsule.</li>
     </ul>
     <div class="shots">
       <img src="images/capsule-menu.png" width="1000" height="470" alt="Capsule context menu: collapse, rename, color, collapse all pods, ungroup, close tabs">
@@ -104,6 +105,7 @@
       <li>Tested with Firefox 158 on Windows 11, with and without Tab Mix Plus. Only the horizontal tab strip is supported, not vertical tabs.</li>
       <li>Pods belong to a window. A tab moved to another window leaves its pod.</li>
       <li>Tabs inside Firefox's own tab groups or split views cannot be put into pods.</li>
+      <li>Unloading sees only the media Firefox reports: a video playing without sound does not keep its tab loaded. Tabs are checked once a minute. Unloaded tabs look like tabs not restored yet after a restart; to dim them, set <code>browser.tabs.fadeOutUnloadedTabs</code> to <code>true</code> in <code>about:config</code>.</li>
       <li>Since this is a userChrome.js script, a big Firefox update can break it. Please <a href="https://github.com/buinsky/TabPods/issues">open an issue</a> if it does.</li>
     </ul>
   </main>
