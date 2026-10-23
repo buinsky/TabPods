@@ -2,7 +2,7 @@
 // @name            TabPods
 // @description     Collapsible colored tab groups (pods) that can also hold pinned tabs
 // @include         main
-// @version         1.1.0
+// @version         1.2.0
 // @author          buinsky
 // @homepageURL     https://github.com/buinsky/TabPods
 // ==/UserScript==
@@ -412,6 +412,11 @@
       opacity: 1;
       filter: brightness(1.15);
     }
+    @media (prefers-reduced-motion: no-preference) {
+      #tabbrowser-tabs[movingtab] .tabpods-capsule {
+        transition: var(--tab-dragover-transition, transform 200ms);
+      }
+    }
 
     .tabbrowser-tab[tabpods-color] {
       background-image: linear-gradient(var(--tabpods-color), var(--tabpods-color));
@@ -437,6 +442,7 @@
   const pinToggledTabs = new Set();
   const openedTabs = new WeakSet(); // new tabs, not yet handled by onTabOpen
   const lastPlayed = new WeakMap(); // tab -> last time it played media
+  let pendingDrop = null; // where the tabs being dragged go, see planDrop()
   let stripObserver = null;
   let updateTimer = 0;
 
@@ -955,26 +961,48 @@
   // code): a tab dragged away from its pod leaves it, tabs dropped between
   // two tabs of a pod join it.
   function processMoves() {
-    if (!movedTabs.size && !pinToggledTabs.size) {
+    if (!movedTabs.size && !pinToggledTabs.size && !pendingDrop?.dropped) {
       return;
     }
-    const moved = new Set([...movedTabs].filter(t => !t.closing && t.isConnected));
+    // Tabs dragged within the window go where planDrop() decided, once Firefox
+    // has moved them.
+    let drop = null;
+    if (pendingDrop?.dropped && !tabs.hasAttribute("movingtab")) {
+      drop = pendingDrop;
+      pendingDrop = null;
+    }
+    const waiting = pendingDrop?.dropped ? pendingDrop.tabs : [];
+    const moved = new Set([...movedTabs].filter(t => !t.closing && t.isConnected && !waiting.includes(t)));
     const toggled = [...pinToggledTabs].filter(t => !t.closing && t.isConnected);
     movedTabs.clear();
     pinToggledTabs.clear();
     let changed = false;
+
+    if (drop) {
+      if (drop.tabs.every((t, i) => t.isConnected && eligible(t) && t.pinned == drop.pinned[i])) {
+        changed = applyDrop(drop);
+        drop.tabs.forEach(t => moved.delete(t));
+      } else {
+        // Pinned, unpinned or grouped by the drop: the rules below apply.
+        for (const tab of drop.tabs) {
+          showColor(tab, podOf(tab));
+          if (!tab.closing && tab.isConnected) moved.add(tab);
+        }
+      }
+    }
 
     for (const tab of toggled) {
       placePinToggled(tab);
       moved.delete(tab);
     }
 
-    // Dropping a tab moves it before the tab under the pointer, or after it;
-    // capsules are not tabs, so a tab dropped onto the left half of the first
-    // tab of a pod lands between the capsule and that tab, and one dropped
-    // onto the tab before the pod lands before the capsule. Capsules are put
-    // back in place only after this, so their position tells which side of
-    // the capsule the tab was dropped on.
+    // The rules for tabs moved otherwise: from the tab list menu, from another
+    // window or by other code. Dropping a tab moves it before the tab under
+    // the pointer, or after it; capsules are not tabs, so a tab dropped onto
+    // the left half of the first tab of a pod lands between the capsule and
+    // that tab, and one dropped onto the tab before the pod lands before the
+    // capsule. Capsules are put back in place only after this, so their
+    // position tells which side of the capsule the tab was dropped on.
 
     // A tab of the pod dropped right before the pod's capsule was dragged out.
     for (const tab of moved) {
@@ -1034,6 +1062,279 @@
     }
     if (changed) {
       saveState();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dragging tabs
+
+  const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
+
+  function showColor(tab, pod) {
+    if (pod) {
+      tab.setAttribute("tabpods-color", pod.color);
+    } else {
+      tab.removeAttribute("tabpods-color");
+    }
+  }
+
+  const isRtl = () => getComputedStyle(tabs).direction == "rtl";
+
+  // The box of a tab strip element along the strip, in the direction of the
+  // tabs: as laid out, and moved by the transform it is heading for (or not).
+  function stripBox(el, rtl, moved = true) {
+    const rect = el.getBoundingClientRect();
+    const now = getComputedStyle(el).transform;
+    let left = rect.left - (now == "none" ? 0 : new DOMMatrix(now).e);
+    if (moved) {
+      left += parseFloat(el.style.transform.match(/translateX?\((-?[\d.]+)px/)?.[1]) || 0;
+    }
+    return rtl ? {start: -left - rect.width, end: -left} : {start: left, end: left + rect.width};
+  }
+
+  // Decides where tabs dragged within the window go: Firefox gives the drop
+  // position as a place between two tabs (the hidden ones aside) and does not
+  // know about the capsules there. So the place between the last tab of a pod
+  // and the capsule of the next pod is the same for it as the place right
+  // after that capsule; the pointer tells them apart. Past the middle of the
+  // capsule the tabs join its pod; before it they stay out of pods, unless
+  // the pointer is closer to the tab before than to the capsule, then they
+  // join the pod of that tab.
+  function planDrop(draggedTab, x) {
+    const data = draggedTab._dragData;
+    if (!data || data.fromTabList) {
+      return null;
+    }
+    const moving = data.movingTabs;
+    if (!moving?.length || !moving.every(t => t.localName == "tab" && eligible(t))) {
+      return null;
+    }
+    const all = liveTabs();
+    const rest = all.filter(t => !moving.includes(t));
+    let at;
+    if (data.dropElement && data.dropBefore != undefined) {
+      at = rest.indexOf(data.dropElement);
+      if (at < 0) {
+        return null;
+      }
+      if (!data.dropBefore) at++;
+    } else {
+      // No drop position yet: the place the tabs come from.
+      at = all.slice(0, all.indexOf(moving[0])).filter(t => !moving.includes(t)).length;
+    }
+    let p = at - 1;
+    while (p >= 0 && rest[p].hidden) p--;
+    let n = at;
+    while (n < rest.length && rest[n].hidden) n++;
+    const prev = rest[p];
+    const next = rest[n];
+    const hidden = rest.slice(p + 1, n); // tabs of collapsed pods
+
+    // The capsules between the two tabs, in order.
+    const from = prev ? all.indexOf(prev) + 1 : 0;
+    const to = next ? all.indexOf(next) : all.length - 1;
+    const caps = all
+      .slice(from, to + 1)
+      .map(t => t.previousElementSibling)
+      .filter(el => capsulePod(el));
+
+    const rtl = isRtl();
+    const pos = rtl ? -x : x;
+    const passed = caps.filter(c => {
+      const box = stripBox(c, rtl);
+      return pos > (box.start + box.end) / 2;
+    }).length;
+    const prevPod = prev && podOf(prev);
+    const nextPod = next && podOf(next);
+    const targets = new Map();
+    let before = null, after = null; // where the tabs must end up
+    if (!caps.length) {
+      for (const tab of moving) {
+        const own = podOf(tab);
+        targets.set(tab, prevPod && prevPod === nextPod ? prevPod : own && own === prevPod ? own : null);
+      }
+    } else if (!passed) {
+      // Which half of the room between them the pointer is in.
+      const closer = prev && Math.abs(pos - stripBox(prev, rtl).end) < Math.abs(pos - stripBox(caps[0], rtl).start);
+      moving.forEach(t => targets.set(t, closer ? prevPod : null));
+      if (hidden.length) {
+        after = prev;
+        before = prev ? null : hidden[0];
+      }
+    } else {
+      const pod = capsulePod(caps[passed - 1]);
+      const joins = passed == caps.length && (nextPod === pod || moving.some(t => podOf(t) === pod));
+      moving.forEach(t => targets.set(t, joins ? pod : null));
+      // After the hidden tabs of the capsules passed.
+      const first = caps[passed]?.nextElementSibling;
+      before = hidden.includes(first) ? first : null;
+      after = before ? null : hidden.at(-1) || null;
+    }
+    // Keep pinned tabs among pinned ones and the others among the others.
+    const anchor = before || after;
+    if (anchor && moving.some(t => t.pinned != anchor.pinned)) {
+      before = after = null;
+    }
+    return {
+      tabs: moving,
+      pinned: moving.map(t => t.pinned),
+      targets,
+      before,
+      after,
+      prev,
+      passedCapsules: caps.slice(0, passed),
+      dropped: false,
+    };
+  }
+
+  let capsulesShifted = false;
+
+  // Firefox takes the dragged tabs out of the layout, which moves the
+  // capsules after them, and shifts tabs aside to open room for the dragged
+  // ones. Each capsule is kept right before the first tab after it that is
+  // not dragged, or, when the drop position is past the capsule, right after
+  // the tab before that position: the room opens on the side of the capsule
+  // where the dragged tabs will land.
+  function shiftCapsules(moving, plan) {
+    const all = liveTabs();
+    const rtl = isRtl();
+    const width = el => el.getBoundingClientRect().width;
+    const place = new Map(); // capsule -> where it starts
+    if (plan?.prev && plan.passedCapsules.length) {
+      let edge = stripBox(plan.prev, rtl).end;
+      for (const capsule of plan.passedCapsules) {
+        place.set(capsule, edge);
+        edge += width(capsule);
+      }
+    }
+    const others = [...capsules.values()]
+      .filter(c => !place.has(c))
+      .map(c => ({capsule: c, at: all.indexOf(c.nextElementSibling)}))
+      .filter(({at}) => at >= 0)
+      .sort((a, b) => b.at - a.at);
+    let ref = null, edge = 0;
+    for (const {capsule, at} of others) {
+      let i = at;
+      while (i < all.length && (all[i].hidden || moving.includes(all[i]))) i++;
+      if (i == all.length) {
+        continue;
+      }
+      if (all[i] !== ref) {
+        ref = all[i];
+        edge = stripBox(ref, rtl).start;
+      }
+      edge -= width(capsule);
+      place.set(capsule, edge);
+    }
+
+    if (!capsulesShifted) {
+      // The first time without a transition, as the layout has just changed.
+      capsulesShifted = true;
+      for (const capsule of capsules.values()) capsule.style.transition = "none";
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          for (const capsule of capsules.values()) capsule.style.transition = "";
+        })
+      );
+    }
+    for (const capsule of capsules.values()) {
+      let shift = 0;
+      if (place.has(capsule)) {
+        shift = Math.round(place.get(capsule) - stripBox(capsule, rtl, false).start);
+      }
+      capsule.style.transform = shift ? `translateX(${rtl ? -shift : shift}px)` : "";
+    }
+  }
+
+  function resetCapsules() {
+    capsulesShifted = false;
+    for (const capsule of capsules.values()) {
+      capsule.style.transform = "";
+    }
+  }
+
+  // Puts the dropped tabs where planDrop() decided.
+  function applyDrop(drop) {
+    withBusy(() => {
+      if (drop.before) {
+        gBrowser.moveTabsBefore(drop.tabs, drop.before);
+      } else if (drop.after) {
+        gBrowser.moveTabsAfter(drop.tabs, drop.after);
+      }
+    });
+    let changed = false;
+    for (const tab of drop.tabs) {
+      let pod = drop.targets.get(tab);
+      if (pod && !pods.has(pod.id)) {
+        pod = null;
+      }
+      if (pod && podOf(tab) !== pod) {
+        assign(tab, pod);
+        changed = true;
+      } else if (!pod && podOf(tab)) {
+        unassign(tab);
+        changed = true;
+      }
+      showColor(tab, podOf(tab));
+    }
+    return changed;
+  }
+
+  function cancelDrop() {
+    const drop = pendingDrop;
+    pendingDrop = null;
+    drop?.tabs.forEach(t => showColor(t, podOf(t)));
+    resetCapsules();
+  }
+
+  // The underline of the dragged tabs shows the pod they would join.
+  function onDragOver(e) {
+    const dt = e.dataTransfer;
+    const draggedTab = dt.mozTypesAt(0)[0] == TAB_DROP_TYPE && dt.mozGetDataAt(TAB_DROP_TYPE, 0);
+    if (!draggedTab || draggedTab.ownerDocument != document || pendingDrop?.dropped) {
+      return;
+    }
+    const plan = dt.dropEffect == "move" ? planDrop(draggedTab, e.clientX) : null;
+    for (const tab of pendingDrop?.tabs || []) {
+      if (!plan?.tabs.includes(tab)) showColor(tab, podOf(tab));
+    }
+    pendingDrop = plan;
+    plan?.targets.forEach((pod, tab) => showColor(tab, pod));
+    if (tabs.hasAttribute("movingtab")) {
+      shiftCapsules(draggedTab._dragData?.movingTabs || [draggedTab], plan);
+    }
+  }
+
+  function onDrop(e) {
+    const drop = pendingDrop;
+    if (!drop || drop.dropped) {
+      return;
+    }
+    if (e.dataTransfer.dropEffect != "move") {
+      cancelDrop();
+      return;
+    }
+    drop.dropped = true;
+    // Firefox moves the tabs at once or after they have slid into place.
+    if (!tabs.hasAttribute("movingtab")) {
+      setTimeout(update, 0);
+    }
+  }
+
+  // Firefox ends the moving tab mode right after moving the dropped tabs, or
+  // when the drag ends otherwise.
+  function onMovingTabChange() {
+    if (!tabs.hasAttribute("movingtab")) {
+      resetCapsules();
+      if (pendingDrop?.dropped) {
+        update();
+      }
+    }
+  }
+
+  function onDragEnd() {
+    if (pendingDrop && !pendingDrop.dropped) {
+      cancelDrop();
     }
   }
 
@@ -1411,6 +1712,13 @@
     tabs.addEventListener("TabUnpinned", onTabPinToggled);
     tabs.addEventListener("SSTabRestoring", onTabRestoring);
     tabs.addEventListener("TabAttrModified", onTabAttrModified);
+    // Firefox handles these on the tab container too and stops them there;
+    // added later, these listeners run after it.
+    tabs.addEventListener("dragstart", cancelDrop);
+    tabs.addEventListener("dragover", onDragOver);
+    tabs.addEventListener("drop", onDrop);
+    tabs.addEventListener("dragend", onDragEnd);
+    new MutationObserver(onMovingTabChange).observe(tabs, {attributes: true, attributeFilter: ["movingtab"]});
     window.addEventListener("SSWindowStateBusy", () => (restoring = true));
     window.addEventListener("SSWindowStateReady", onWindowRestored);
 

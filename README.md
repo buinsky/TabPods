@@ -26,7 +26,11 @@ still tuck it away together with the rest of your work tabs.
 - Switching to a tab of a collapsed pod (for example from the *List all tabs*
   menu or by reopening it) expands the pod. Collapsing the pod of the current tab switches to another tab.
 - Drag and drop: drop a tab right after a capsule or between two tabs of a pod
-  and it joins the pod; drag a tab out and it leaves.
+  and it joins the pod; drag a tab out and it leaves. Between the last tab of
+  a pod and the capsule of the next one, a tab dropped closer to that last tab
+  joins its pod, and one dropped closer to the capsule stays out of pods. While
+  you drag, the underline of the tab shows the pod it will join, and the
+  capsules move aside together with the tabs.
 - New tabs opened from a tab of a pod are placed after the pod, not inside it.
 - 9 colors, optional names (shown in the tooltip).
 - Unloading of inactive tabs, set per pod: a tab that was not switched to and
