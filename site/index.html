@@ -72,7 +72,8 @@
       <li>Drag and drop: drop a tab right after a capsule or between two tabs of a pod and it joins the pod; drag a tab out and it leaves. Between the last tab of a pod and the capsule of the next one, a tab dropped closer to that last tab joins its pod, and one dropped closer to the capsule stays out of pods. While you drag, the underline of the tab shows the pod it will join, and the capsules move aside together with the tabs.</li>
       <li>New tabs opened from a tab of a pod are placed after the pod, not inside it.</li>
       <li>9 colors, optional names (shown in the tooltip).</li>
-      <li>Unloading of inactive tabs, set per pod: a tab that was not switched to and played no audio or video for 10 minutes, 30 minutes, 1 hour or 6 hours is unloaded to free memory, pinned and collapsed tabs included. It stays in its pod and loads again when you switch to it. Tabs that Firefox does not let unload, such as <code>about:config</code> or a page asking to stay because of unsaved input, are left alone.</li>
+      <li>Unloading of inactive tabs, set per pod: a tab that was not switched to and played no audio or video for 10 minutes, 30 minutes, 1 hour or 6 hours is unloaded to free memory, pinned and collapsed tabs included. It stays in its pod and loads again when you switch to it. After a browser restart the tabs of such a pod are not loaded until you switch to them, pinned ones included (Firefox loads pinned tabs at startup otherwise). Tabs that Firefox does not let unload, such as <code>about:config</code> or a page asking to stay because of unsaved input, are left alone.</li>
+      <li><strong>Unload all tabs</strong> in the capsule menu unloads every tab of the pod at once, as Firefox's own <em>Unload tab</em> does. If the current tab is in the pod, Firefox switches to another tab first.</li>
       <li>Pods, colors, unloading and the collapsed state survive a browser restart. Reopening a closed tab (Ctrl+Shift+T) puts it back into its pod.</li>
       <li>Interface in English, Russian, Ukrainian, German, French, Spanish, Italian, Portuguese (Brazil), Polish, Japanese and Chinese (Simplified and Traditional).</li>
       <li>Works with or without <a href="https://onemen.github.io/tabmixplus-docs/">Tab Mix Plus</a>.</li>
@@ -84,7 +85,7 @@
       <li><strong>Add tabs:</strong> right-click → <strong>Pod → Add to “…”</strong>, or drag the tabs into the pod.</li>
       <li><strong>Remove tabs:</strong> right-click → <strong>Pod → Remove from pod</strong>, or drag them out.</li>
       <li><strong>Collapse / expand:</strong> left-click the capsule.</li>
-      <li><strong>Rename, recolor, unload inactive tabs, ungroup, close all tabs of the pod, collapse or expand all pods:</strong> right-click the capsule.</li>
+      <li><strong>Rename, recolor, unload tabs, ungroup, close all tabs of the pod, collapse or expand all pods:</strong> right-click the capsule.</li>
     </ul>
     <div class="shots">
       <img src="images/capsule-menu.png" width="1000" height="470" alt="Capsule context menu: collapse, rename, color, collapse all pods, ungroup, close tabs">

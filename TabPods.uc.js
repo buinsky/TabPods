@@ -2,7 +2,7 @@
 // @name            TabPods
 // @description     Collapsible colored tab groups (pods) that can also hold pinned tabs
 // @include         main
-// @version         1.2.1
+// @version         1.3.0
 // @author          buinsky
 // @homepageURL     https://github.com/buinsky/TabPods
 // ==/UserScript==
@@ -23,7 +23,8 @@
 //
 // A pod can unload its tabs once they were neither selected nor played audio
 // or video for a while. Unloading goes through gBrowser.discardBrowser(), as
-// when Firefox unloads tabs itself on low memory.
+// when Firefox unloads tabs itself on low memory. The tabs of such a pod also
+// stay unloaded when the session is restored, pinned ones included.
 
 (function () {
   "use strict";
@@ -72,6 +73,7 @@
       unloadNever: "Never",
       unloadMinutes: {one: "After {n} minute", other: "After {n} minutes"},
       unloadHours: {one: "After {n} hour", other: "After {n} hours"},
+      unloadAll: "Unload all tabs",
       collapseAll: "Collapse all pods",
       expandAll: "Expand all pods",
       ungroup: "Ungroup pod",
@@ -96,6 +98,7 @@
       unloadNever: "Никогда",
       unloadMinutes: {one: "Через {n} минуту", few: "Через {n} минуты", many: "Через {n} минут", other: "Через {n} минуты"},
       unloadHours: {one: "Через {n} час", few: "Через {n} часа", many: "Через {n} часов", other: "Через {n} часа"},
+      unloadAll: "Выгрузить все вкладки",
       collapseAll: "Свернуть все капсулы",
       expandAll: "Развернуть все капсулы",
       ungroup: "Расформировать капсулу",
@@ -120,6 +123,7 @@
       unloadNever: "Ніколи",
       unloadMinutes: {one: "Через {n} хвилину", few: "Через {n} хвилини", many: "Через {n} хвилин", other: "Через {n} хвилини"},
       unloadHours: {one: "Через {n} годину", few: "Через {n} години", many: "Через {n} годин", other: "Через {n} години"},
+      unloadAll: "Вивантажити всі вкладки",
       collapseAll: "Згорнути всі капсули",
       expandAll: "Розгорнути всі капсули",
       ungroup: "Розформувати капсулу",
@@ -144,6 +148,7 @@
       unloadNever: "Nie",
       unloadMinutes: {one: "Nach {n} Minute", other: "Nach {n} Minuten"},
       unloadHours: {one: "Nach {n} Stunde", other: "Nach {n} Stunden"},
+      unloadAll: "Alle Tabs entladen",
       collapseAll: "Alle Kapseln einklappen",
       expandAll: "Alle Kapseln ausklappen",
       ungroup: "Kapsel auflösen",
@@ -168,6 +173,7 @@
       unloadNever: "Jamais",
       unloadMinutes: {one: "Après {n} minute", other: "Après {n} minutes"},
       unloadHours: {one: "Après {n} heure", other: "Après {n} heures"},
+      unloadAll: "Décharger tous les onglets",
       collapseAll: "Réduire toutes les capsules",
       expandAll: "Développer toutes les capsules",
       ungroup: "Dissoudre la capsule",
@@ -192,6 +198,7 @@
       unloadNever: "Nunca",
       unloadMinutes: {one: "Después de {n} minuto", other: "Después de {n} minutos"},
       unloadHours: {one: "Después de {n} hora", other: "Después de {n} horas"},
+      unloadAll: "Descargar todas las pestañas",
       collapseAll: "Contraer todas las cápsulas",
       expandAll: "Expandir todas las cápsulas",
       ungroup: "Desagrupar cápsula",
@@ -216,6 +223,7 @@
       unloadNever: "Mai",
       unloadMinutes: {one: "Dopo {n} minuto", other: "Dopo {n} minuti"},
       unloadHours: {one: "Dopo {n} ora", other: "Dopo {n} ore"},
+      unloadAll: "Libera la memoria di tutte le schede",
       collapseAll: "Comprimi tutte le capsule",
       expandAll: "Espandi tutte le capsule",
       ungroup: "Sciogli capsula",
@@ -240,6 +248,7 @@
       unloadNever: "Nunca",
       unloadMinutes: {one: "Após {n} minuto", other: "Após {n} minutos"},
       unloadHours: {one: "Após {n} hora", other: "Após {n} horas"},
+      unloadAll: "Descarregar todas as abas",
       collapseAll: "Recolher todas as cápsulas",
       expandAll: "Expandir todas as cápsulas",
       ungroup: "Desagrupar cápsula",
@@ -264,6 +273,7 @@
       unloadNever: "Nigdy",
       unloadMinutes: {one: "Po {n} minucie", other: "Po {n} minutach"},
       unloadHours: {one: "Po {n} godzinie", other: "Po {n} godzinach"},
+      unloadAll: "Usuń wszystkie karty z pamięci",
       collapseAll: "Zwiń wszystkie kapsuły",
       expandAll: "Rozwiń wszystkie kapsuły",
       ungroup: "Rozgrupuj kapsułę",
@@ -288,6 +298,7 @@
       unloadNever: "しない",
       unloadMinutes: {other: "{n} 分後"},
       unloadHours: {other: "{n} 時間後"},
+      unloadAll: "すべてのタブをアンロード",
       collapseAll: "すべてのカプセルを折りたたむ",
       expandAll: "すべてのカプセルを展開する",
       ungroup: "カプセルを解除",
@@ -312,6 +323,7 @@
       unloadNever: "从不",
       unloadMinutes: {other: "{n} 分钟后"},
       unloadHours: {other: "{n} 小时后"},
+      unloadAll: "卸载所有标签页",
       collapseAll: "折叠所有胶囊",
       expandAll: "展开所有胶囊",
       ungroup: "解散胶囊",
@@ -336,6 +348,7 @@
       unloadNever: "永不",
       unloadMinutes: {other: "{n} 分鐘後"},
       unloadHours: {other: "{n} 小時後"},
+      unloadAll: "卸載所有分頁",
       collapseAll: "摺疊所有膠囊",
       expandAll: "展開所有膠囊",
       ungroup: "解散膠囊",
@@ -669,6 +682,77 @@
         console.error("TabPods: cannot unload a tab", e);
       }
     }
+  }
+
+  // Tabs Firefox can unload: loaded or waiting to load, about: pages aside.
+  const unloadable = tab => !!tab.linkedPanel && !!tab.linkedBrowser?.isRemoteBrowser && !tab.closing;
+
+  // Unloads every tab of a pod the way "Unload tab" in the tab context menu
+  // does: a page may ask to stay, and if the current tab is one of them,
+  // another loaded tab gets selected first.
+  function unloadPod(pod) {
+    const loaded = membersOf(pod).filter(unloadable);
+    if (loaded.length) {
+      gBrowser.explicitUnloadTabs(loaded);
+    }
+  }
+
+  // Firefox restores the tabs of the last session when they get selected,
+  // but pinned tabs (and every tab with restore_on_demand off) start loading
+  // at once. Tabs of pods that unload their tabs stay unloaded instead.
+  // SessionStore first creates the tabs of a window with
+  // createTabsForSessionRestore() and then restores into them; a tab whose
+  // browser was discarded in between is restored as a lazy tab, like any tab
+  // not loaded yet.
+  let restorePatched = false;
+
+  function patchSessionRestore() {
+    if (restorePatched || !window.gBrowser) {
+      return;
+    }
+    restorePatched = true;
+    const create = gBrowser.createTabsForSessionRestore;
+    gBrowser.createTabsForSessionRestore = function (restoreLazily, selectTab, tabDataList, ...rest) {
+      const created = create.call(this, restoreLazily, selectTab, tabDataList, ...rest);
+      try {
+        keepUnloaded(created, tabDataList);
+      } catch (e) {
+        console.error("TabPods: cannot keep restored tabs unloaded", e);
+      }
+      return created;
+    };
+  }
+
+  function keepUnloaded(created, tabDataList) {
+    const waiting = created
+      .map((tab, i) => ({tab, data: tabDataList[i]}))
+      .filter(({tab, data}) => tab.linkedPanel && !tab.selected && data?.extData?.[TAB_KEY] && !data.groupId && !data.splitViewId);
+    if (!waiting.length) {
+      return;
+    }
+    const unloading = unloadingPodIds();
+    for (const {tab, data} of waiting) {
+      if (unloading.has(data.extData[TAB_KEY])) {
+        gBrowser.discardBrowser(tab);
+      }
+    }
+  }
+
+  // The pods of the window that unload their tabs. While a window is being
+  // restored, SessionStore gives the state it restores as the window state.
+  function unloadingPodIds() {
+    const ids = new Set([...pods.values()].filter(p => p.unloadAfter).map(p => p.id));
+    try {
+      const value = SessionStore.getWindowState(window).windows?.[0]?.extData?.[WIN_KEY];
+      for (const p of JSON.parse(value || "[]")) {
+        if (p && typeof p.id == "string" && UNLOAD_TIMES.includes(p.unloadAfter) && p.unloadAfter) {
+          ids.add(p.id);
+        }
+      }
+    } catch (e) {
+      console.error("TabPods: cannot read the pods being restored", e);
+    }
+    return ids;
   }
 
   // ---------------------------------------------------------------------------
@@ -1623,6 +1707,7 @@
           )
         )
       );
+      popup.append(menuItem(t("unloadAll"), () => unloadPod(pod), {disabled: !membersOf(pod).some(unloadable)}));
 
       popup.append(document.createXULElement("menuseparator"));
       popup.append(menuItem(t("collapseAll"), () => orderedPods().forEach(p => !p.collapsed && collapse(p))));
@@ -1722,6 +1807,7 @@
 
   function init() {
     tabs = gBrowser.tabContainer;
+    patchSessionRestore();
     patchAllTabs();
     patchDragAndDropElements();
     // A sheet of the browser document itself: a data: sheet loaded through
@@ -1762,18 +1848,30 @@
     onWindowRestored();
     setInterval(unloadIdleTabs, UNLOAD_CHECK_INTERVAL);
 
-    window.TabPods = {pods, createPod, addToPod, removeFromPods, ungroupPod, collapse, expand, toggle, setColor, setUnloadAfter, unloadIdleTabs, update};
+    window.TabPods = {pods, createPod, addToPod, removeFromPods, ungroupPod, collapse, expand, toggle, setColor, setUnloadAfter, unloadIdleTabs, unloadPod, update};
+  }
+
+  // Calls back once the given notification comes for this window.
+  function whenNotified(topic, callback) {
+    const observer = subject => {
+      if (subject == window) {
+        Services.obs.removeObserver(observer, topic);
+        callback();
+      }
+    };
+    Services.obs.addObserver(observer, topic);
   }
 
   if (gBrowserInit.delayedStartupFinished) {
     init();
   } else {
-    const observer = subject => {
-      if (subject == window) {
-        Services.obs.removeObserver(observer, "browser-delayed-startup-finished");
-        init();
-      }
-    };
-    Services.obs.addObserver(observer, "browser-delayed-startup-finished");
+    // SessionStore restores the first window of a session after its delayed
+    // startup, but the other windows as soon as they are shown.
+    if (window.gBrowser) {
+      patchSessionRestore();
+    } else {
+      whenNotified("browser-window-before-show", patchSessionRestore);
+    }
+    whenNotified("browser-delayed-startup-finished", init);
   }
 })();

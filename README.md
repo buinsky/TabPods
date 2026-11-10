@@ -38,9 +38,14 @@ still tuck it away together with the rest of your work tabs.
 - Unloading of inactive tabs, set per pod: a tab that was not switched to and
   played no audio or video for 10 minutes, 30 minutes, 1 hour or 6 hours is
   unloaded to free memory, pinned and collapsed tabs included. It stays in its
-  pod and loads again when you switch to it. Tabs that Firefox does not let
-  unload, such as `about:config` or a page asking to stay because of unsaved
-  input, are left alone.
+  pod and loads again when you switch to it. After a browser restart the tabs
+  of such a pod are not loaded until you switch to them, pinned ones included
+  (Firefox loads pinned tabs at startup otherwise). Tabs that Firefox does not
+  let unload, such as `about:config` or a page asking to stay because of
+  unsaved input, are left alone.
+- **Unload all tabs** in the capsule menu unloads every tab of the pod at once,
+  as Firefox's own *Unload tab* does. If the current tab is in the pod, Firefox
+  switches to another tab first.
 - Pods, colors, unloading and the collapsed state survive a browser restart.
   Reopening a closed tab (Ctrl+Shift+T) puts it back into its pod.
 - Interface in English, Russian, Ukrainian, German, French, Spanish, Italian,
@@ -56,8 +61,8 @@ still tuck it away together with the rest of your work tabs.
   pod.
 - **Remove tabs:** right-click → **Pod → Remove from pod**, or drag them out.
 - **Collapse / expand:** left-click the capsule.
-- **Rename, recolor, unload inactive tabs, ungroup, close all tabs of the pod,
-  collapse or expand all pods:** right-click the capsule.
+- **Rename, recolor, unload tabs, ungroup, close all tabs of the pod, collapse
+  or expand all pods:** right-click the capsule.
 
 ![Capsule menu](images/capsule-menu.png)
 
