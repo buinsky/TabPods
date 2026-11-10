@@ -2,7 +2,7 @@
 // @name            TabPods
 // @description     Collapsible colored tab groups (pods) that can also hold pinned tabs
 // @include         main
-// @version         1.2.0
+// @version         1.2.1
 // @author          buinsky
 // @homepageURL     https://github.com/buinsky/TabPods
 // ==/UserScript==
@@ -937,7 +937,34 @@
           gBrowser.moveTabBefore(tab, unpinned[0]);
         } else if (other) {
           gBrowser.moveTabAfter(tab, membersOf(other).at(-1));
+        } else {
+          // The pod goes across the border now, its pinned tabs go last among
+          // the pinned ones, right before the tab.
+          for (const t of others) {
+            gBrowser.moveTabTo(t, {tabIndex: gBrowser.pinnedTabCount - 1});
+          }
         }
+      }
+    });
+  }
+
+  // Takes a tab of no pod out of the middle of a pod, where opening, pinning
+  // or unpinning it put it: a pinned tab goes before the pinned tabs of the
+  // pod, any other tab after the pod.
+  function moveOutOfPod(tab) {
+    const all = liveTabs();
+    const i = all.indexOf(tab);
+    const before = all[i - 1] && podOf(all[i - 1]);
+    const after = all[i + 1] && podOf(all[i + 1]);
+    if (!before || before !== after) {
+      return;
+    }
+    const members = membersOf(before);
+    withBusy(() => {
+      if (tab.pinned) {
+        gBrowser.moveTabBefore(tab, members.find(t => t.pinned));
+      } else {
+        gBrowser.moveTabAfter(tab, members.at(-1));
       }
     });
   }
@@ -991,8 +1018,18 @@
       }
     }
 
+    // Pinned or unpinned tabs go next to the rest of their pod. Tabs of no pod
+    // do not join one that way; pinned or unpinned by a drop, the drop rules
+    // apply to them.
+    const dropped = [...(drop?.tabs || []), ...waiting];
     for (const tab of toggled) {
-      placePinToggled(tab);
+      if (podOf(tab)) {
+        placePinToggled(tab);
+      } else if (!dropped.includes(tab)) {
+        moveOutOfPod(tab);
+      } else {
+        continue;
+      }
       moved.delete(tab);
     }
 
@@ -1372,14 +1409,20 @@
     if (!tabList.length) {
       return;
     }
-    if (pod.collapsed) {
-      expand(pod);
-    }
     const order = [...membersOf(pod), ...tabList];
     for (const tab of tabList) {
       assign(tab, pod);
     }
     gather(pod, order);
+    if (pod.collapsed) {
+      // The tabs fold away into the collapsed pod; if the current tab is one
+      // of them, another tab gets selected. With no other tab left to select
+      // the pod expands.
+      collapse(pod);
+      if (membersOf(pod).some(t => !t.hidden)) {
+        expand(pod);
+      }
+    }
     dropEmptyPods();
     saveState();
     update();
@@ -1611,14 +1654,8 @@
       if (!tab.isConnected || tab.closing) return;
       readTab(tab);
       if (!podOf(tab)) {
-        // New tabs do not join a pod, take them out of its middle.
-        const all = liveTabs();
-        const i = all.indexOf(tab);
-        const before = all[i - 1] && podOf(all[i - 1]);
-        const after = all[i + 1] && podOf(all[i + 1]);
-        if (before && before === after) {
-          withBusy(() => gBrowser.moveTabAfter(tab, membersOf(before).at(-1)));
-        }
+        // New tabs do not join a pod.
+        moveOutOfPod(tab);
       }
       update();
     }, 0);
@@ -1655,7 +1692,7 @@
   }
 
   function onTabPinToggled(e) {
-    if (!busy && !restoring && e.target.hasAttribute("tabpods")) {
+    if (!busy && !restoring) {
       pinToggledTabs.add(e.target);
     }
     scheduleUpdate();

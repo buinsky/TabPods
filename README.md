@@ -25,6 +25,8 @@ still tuck it away together with the rest of your work tabs.
   hidden: they are skipped by Ctrl+Tab, Ctrl+PgDn and "Close Other Tabs".
 - Switching to a tab of a collapsed pod (for example from the *List all tabs*
   menu or by reopening it) expands the pod. Collapsing the pod of the current tab switches to another tab.
+- Tabs added to a collapsed pod from the menu fold away into it, and the pod
+  stays collapsed. If the current tab is one of them, another tab gets selected.
 - Drag and drop: drop a tab right after a capsule or between two tabs of a pod
   and it joins the pod; drag a tab out and it leaves. Between the last tab of
   a pod and the capsule of the next one, a tab dropped closer to that last tab
