@@ -66,10 +66,12 @@
     <h2>Features</h2>
     <ul>
       <li>Group any tabs into a pod, <strong>pinned tabs included</strong>.</li>
+      <li>A pod works like a tab strip of its own: its pinned tabs come first, then the others. Unpinning a tab of a pod keeps it in the pod, right after the pinned ones; pinning it puts it back among them. A pod with a pinned tab stays among the pinned tabs. Pinning a tab of a pod without pinned tabs takes the whole pod to the end of the pinned tabs, and unpinning the last pinned tab of a pod takes the pod to the start of the regular tabs.</li>
       <li>Click the capsule to collapse or expand the pod. Collapsed tabs are really hidden: they are skipped by Ctrl+Tab, Ctrl+PgDn and “Close Other Tabs”.</li>
       <li>Switching to a tab of a collapsed pod (for example from the <em>List all tabs</em> menu or by reopening it) expands the pod. Collapsing the pod of the current tab switches to another tab.</li>
       <li>Tabs added to a collapsed pod from the menu fold away into it, and the pod stays collapsed. If the current tab is one of them, another tab gets selected.</li>
       <li>Drag and drop: drop a tab right after a capsule or between two tabs of a pod and it joins the pod; drag a tab out and it leaves. Between the last tab of a pod and the capsule of the next one, a tab dropped closer to that last tab joins its pod, and one dropped closer to the capsule stays out of pods. While you drag, the underline of the tab shows the pod it will join, and the capsules move aside together with the tabs.</li>
+      <li>Drag a capsule to move the whole pod: the capsule and its tabs follow the pointer and the other tabs make room, as when you drag tabs. A pod moves among the tabs of its kind, pinned or not, and goes between tabs, pods and tab groups, never into them; Esc puts it back.</li>
       <li>New tabs opened from a tab of a pod are placed after the pod, not inside it.</li>
       <li>9 colors, optional names (shown in the tooltip).</li>
       <li>Unloading of inactive tabs, set per pod: a tab that was not switched to and played no audio or video for 10 minutes, 30 minutes, 1 hour or 6 hours is unloaded to free memory, pinned and collapsed tabs included. It stays in its pod and loads again when you switch to it. After a browser restart the tabs of such a pod are not loaded until you switch to them, pinned ones included (Firefox loads pinned tabs at startup otherwise). Tabs that Firefox does not let unload, such as <code>about:config</code> or a page asking to stay because of unsaved input, are left alone.</li>
@@ -85,6 +87,7 @@
       <li><strong>Add tabs:</strong> right-click → <strong>Pod → Add to “…”</strong>, or drag the tabs into the pod.</li>
       <li><strong>Remove tabs:</strong> right-click → <strong>Pod → Remove from pod</strong>, or drag them out.</li>
       <li><strong>Collapse / expand:</strong> left-click the capsule.</li>
+      <li><strong>Move a pod:</strong> drag its capsule.</li>
       <li><strong>Rename, recolor, unload tabs, ungroup, close all tabs of the pod, collapse or expand all pods:</strong> right-click the capsule.</li>
     </ul>
     <div class="shots">
@@ -106,7 +109,9 @@
     <ul>
       <li>Tested with Firefox 158 on Windows 11, with and without Tab Mix Plus. Only the horizontal tab strip is supported, not vertical tabs.</li>
       <li>Pods belong to a window. A tab moved to another window leaves its pod.</li>
+      <li>Pods move by their capsules only while the tabs fit in one row: not when Tab Mix Plus shows them in several rows.</li>
       <li>Tabs inside Firefox's own tab groups or split views cannot be put into pods.</li>
+      <li>Firefox keeps all pinned tabs before the others, so all tabs of a pod with a pinned tab are pinned for Firefox: the ones unpinned within the pod only look and load pages like regular tabs. <em>Close Other Tabs</em> and <em>Close Tabs to the Right</em> leave them open, and add-ons see them as pinned.</li>
       <li>Unloading sees only the media Firefox reports: a video playing without sound does not keep its tab loaded. Tabs are checked once a minute. Unloaded tabs look like tabs not restored yet after a restart; to dim them, set <code>browser.tabs.fadeOutUnloadedTabs</code> to <code>true</code> in <code>about:config</code>.</li>
       <li>Since this is a userChrome.js script, a big Firefox update can break it. Please <a href="https://github.com/buinsky/TabPods/issues">open an issue</a> if it does.</li>
     </ul>

@@ -2,7 +2,7 @@
 // @name            TabPods
 // @description     Collapsible colored tab groups (pods) that can also hold pinned tabs
 // @include         main
-// @version         1.3.0
+// @version         1.4.0
 // @author          buinsky
 // @homepageURL     https://github.com/buinsky/TabPods
 // ==/UserScript==
@@ -21,6 +21,14 @@
 // of a tab is stored as tab value TAB_KEY and mirrored to the "tabpods"
 // attribute, which is what the rest of the script reads.
 //
+// Dragging a capsule moves the whole pod. Firefox's tab drag and drop does
+// not handle capsules, so TabPods follows the pointer itself.
+//
+// Firefox keeps all pinned tabs before all others, so a pod with a pinned tab
+// has all of its tabs pinned for Firefox and sits among the pinned tabs. Its
+// tabs unpinned within the pod come after the others and are drawn like
+// regular tabs (attribute and tab value UNPINNED_KEY).
+//
 // A pod can unload its tabs once they were neither selected nor played audio
 // or video for a while. Unloading goes through gBrowser.discardBrowser(), as
 // when Firefox unloads tabs itself on low memory. The tabs of such a pod also
@@ -31,6 +39,7 @@
 
   const TAB_KEY = "tabpods-pod";
   const WIN_KEY = "tabpods-pods";
+  const UNPINNED_KEY = "tabpods-unpinned"; // tab value and attribute, see "Pinned pods"
 
   const COLORS = [
     ["orange", "#ff9548"],
@@ -431,6 +440,33 @@
       }
     }
 
+    /* A pod dragged by its capsule, see "Moving pods". */
+    #tabbrowser-tabs [tabpods-shift] {
+      position: relative;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      #tabbrowser-tabs [tabpods-shift]:not([tabpods-dragged]) {
+        transition: var(--tab-dragover-transition, transform 200ms ease-out) !important;
+      }
+    }
+    #tabbrowser-tabs [tabpods-dragged] {
+      z-index: 3;
+      transition: none !important;
+    }
+    .tabpods-capsule[tabpods-dragged] {
+      cursor: default;
+      > .tabpods-pill {
+        opacity: 1;
+      }
+    }
+
+    /* A tab unpinned within a pinned pod, drawn like a regular tab as narrow
+       as they get (--tabpods-tab-width, see updateTabWidth()). */
+    #tabbrowser-tabs[orient="horizontal"] .tabbrowser-tab[tabpods-unpinned] {
+      flex: none;
+      width: var(--tabpods-tab-width, var(--tab-min-width, 76px));
+    }
+
     .tabbrowser-tab[tabpods-color] {
       background-image: linear-gradient(var(--tabpods-color), var(--tabpods-color));
       background-size: calc(100% - 14px) 2px;
@@ -470,6 +506,9 @@
   const membersOf = pod => liveTabs().filter(t => t.getAttribute("tabpods") == pod.id);
   // Tabs inside native tab groups or split views are left alone.
   const eligible = tab => !tab.closing && !tab.group && !tab.splitview && tab != FirefoxViewHandler.tab;
+  // Within a pod, see "Pinned pods".
+  const looksUnpinned = tab => tab.hasAttribute(UNPINNED_KEY);
+  const looksPinned = tab => tab.pinned && !tab.hasAttribute(UNPINNED_KEY);
 
   function podLabel(pod) {
     return pod.name || colorName(pod.color);
@@ -535,6 +574,10 @@
       markTab(tab, pod);
     } else {
       unmarkTab(tab);
+    }
+    tab.toggleAttribute(UNPINNED_KEY, !!SessionStore.getCustomTabValue(tab, UNPINNED_KEY));
+    if (looksUnpinned(tab)) {
+      unpinLook(tab);
     }
   }
 
@@ -856,6 +899,13 @@
   // take them for clicks on the empty tab bar (a double click opens a new
   // tab, a middle click duplicates one and so on).
   function onCapsuleMouse(e) {
+    if (e.type == "click" && clickAfterDrag) {
+      // Releasing a dragged capsule is no click.
+      clickAfterDrag = false;
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
     const capsule = e.target.closest?.(".tabpods-capsule");
     if (!capsule) {
       return;
@@ -924,6 +974,9 @@
     updateTimer = 0;
     if (!restoring) {
       processMoves();
+      if (!tabs.hasAttribute("movingtab")) {
+        settlePods();
+      }
     }
     for (const tab of liveTabs()) {
       if (tab.hasAttribute("tabpods") && (!podOf(tab) || !eligible(tab))) {
@@ -931,6 +984,20 @@
       }
     }
     placeCapsules();
+    updateTabWidth();
+  }
+
+  // The width of the tabs unpinned within a pinned pod: the minimum width of
+  // regular tabs, as Firefox or Tab Mix Plus set it.
+  function updateTabWidth() {
+    if (!liveTabs().some(looksUnpinned)) {
+      return;
+    }
+    const tab = gBrowser.visibleTabs.find(t => !t.pinned && t.hasAttribute("fadein") && !t.closing);
+    const width = tab && parseFloat(getComputedStyle(tab).minWidth);
+    if (width > 0) {
+      tabs.style.setProperty("--tabpods-tab-width", `${width}px`);
+    }
   }
 
   function scheduleUpdate() {
@@ -942,18 +1009,6 @@
   // ---------------------------------------------------------------------------
   // Keeping pods together
 
-  // The pod (other than the given one) whose tabs sit on both sides of the
-  // border between pinned and unpinned tabs.
-  function borderPod(pod) {
-    const all = liveTabs().filter(t => t.getAttribute("tabpods") != pod.id);
-    const i = all.findIndex(t => !t.pinned);
-    if (i < 1) {
-      return null;
-    }
-    const other = podOf(all[i - 1]);
-    return other && other === podOf(all[i]) ? other : null;
-  }
-
   // Moves tabs right after each other, in the given order.
   function chain(order) {
     for (let i = 1; i < order.length; i++) {
@@ -963,70 +1018,212 @@
     }
   }
 
-  // Moves the tabs of a pod next to each other, in the given order. A pod with
-  // both pinned and unpinned tabs goes across the border between the two: its
-  // pinned tabs last among the pinned ones, the others first after them. If
-  // another pod is there already, the pinned tabs go right before that pod.
+  // Moves the tabs of a pod next to each other, in the given order, with the
+  // pinned ones first if there are any (see "Pinned pods").
   function gather(pod, order) {
-    const pinned = order.filter(t => t.pinned);
-    const unpinned = order.filter(t => !t.pinned);
     withBusy(() => {
-      if (!pinned.length || !unpinned.length) {
-        chain(order);
-        return;
-      }
-      const other = borderPod(pod);
-      if (other) {
-        const anchor = membersOf(other).find(t => t.pinned);
-        for (const tab of pinned) {
-          gBrowser.moveTabBefore(tab, anchor);
+      if (order.some(looksPinned)) {
+        for (const tab of order) {
+          if (!tab.pinned) {
+            pinForReal(tab);
+            setLooksUnpinned(tab, true);
+          }
         }
-        chain(unpinned);
-        return;
-      }
-      for (const tab of pinned) {
-        gBrowser.moveTabTo(tab, {tabIndex: gBrowser.pinnedTabCount - 1});
-      }
-      for (const tab of unpinned.reverse()) {
-        gBrowser.moveTabTo(tab, {tabIndex: gBrowser.pinnedTabCount});
+        chain([...order.filter(looksPinned), ...order.filter(looksUnpinned)]);
+      } else {
+        unpinForReal(order.filter(t => t.pinned));
+        chain(order);
       }
     });
+    if (pod.collapsed) {
+      // Pinning shows hidden tabs.
+      order.forEach(hideTab);
+    }
   }
 
-  // Pinning moves a tab to the end of the pinned tabs and unpinning to the
-  // start of the unpinned ones; put it back next to the rest of its pod.
-  function placePinToggled(tab) {
-    const pod = podOf(tab);
-    if (!pod) {
+  // ---------------------------------------------------------------------------
+  // Pinned pods
+  //
+  // A pod works like a tab strip of its own: its pinned tabs come first, then
+  // the others, wherever the pod is. Firefox keeps all pinned tabs before all
+  // others, so a pod with a pinned tab has all of its tabs pinned for Firefox
+  // and sits among the pinned tabs; its tabs unpinned within the pod are
+  // marked (UNPINNED_KEY) and drawn like regular tabs. A pod without pinned
+  // tabs has none pinned for Firefox. Pinning a tab of such a pod takes the
+  // pod to the end of the pinned tabs, and unpinning the last pinned tab of a
+  // pod takes the pod to the start of the regular tabs, the way Firefox moves
+  // a single tab.
+  //
+  // gBrowser.pinTab() and unpinTab() are wrapped for that: the tab context
+  // menu, the tab list and add-ons all go through them. Tabs pinned or
+  // unpinned by a drop are left to Firefox and settled afterwards.
+
+  let realPinTab = null;
+  let realUnpinTab = null;
+
+  function pinForReal(tab) {
+    realPinTab.call(gBrowser, tab);
+  }
+
+  // Unpins tabs for Firefox, keeping their order: unpinning puts a tab at the
+  // start of the regular tabs.
+  function unpinForReal(list) {
+    for (const tab of [...list].reverse()) {
+      setLooksUnpinned(tab, false);
+      realUnpinTab.call(gBrowser, tab);
+    }
+  }
+
+  // Firefox marks the label, the close button and so on of a pinned tab as
+  // pinned too, and they are drawn that way; it does so again only when the
+  // tab gets pinned or unpinned.
+  function unpinLook(tab) {
+    for (const el of tab.querySelectorAll("[pinned]")) {
+      el.removeAttribute("pinned");
+    }
+  }
+
+  function pinLook(tab) {
+    const list = tab.constructor.flippedInheritedAttributes?.pinned;
+    if (list && tab.inheritAttribute) {
+      tab.inheritAttribute(list, "pinned");
+    }
+  }
+
+  function setLooksUnpinned(tab, on) {
+    if (on) {
+      tab.setAttribute(UNPINNED_KEY, "true");
+      SessionStore.setCustomTabValue(tab, UNPINNED_KEY, "true");
+      unpinLook(tab);
+    } else if (looksUnpinned(tab)) {
+      tab.removeAttribute(UNPINNED_KEY);
+      SessionStore.deleteCustomTabValue(tab, UNPINNED_KEY);
+      pinLook(tab);
+    }
+  }
+
+  function patchPinning() {
+    realPinTab = gBrowser.pinTab;
+    realUnpinTab = gBrowser.unpinTab;
+    gBrowser.pinTab = function (tab, options) {
+      if (!pinWithinPod(tab, true, options)) {
+        return realPinTab.call(this, tab, options);
+      }
+    };
+    gBrowser.unpinTab = function (tab, options) {
+      if (!pinWithinPod(tab, false, options)) {
+        return realUnpinTab.call(this, tab, options);
+      }
+    };
+  }
+
+  // Firefox opens an address of another site entered in a pinned tab in a new
+  // tab; a tab unpinned within its pod should load it like any regular tab.
+  // URILoadingHelper is shared by all windows, so it is patched once.
+  function patchHostChange() {
+    let helper;
+    try {
+      ({URILoadingHelper: helper} = ChromeUtils.importESModule("resource:///modules/URILoadingHelper.sys.mjs"));
+    } catch (e) {
+      console.error("TabPods: no URILoadingHelper", e);
       return;
     }
-    const others = membersOf(pod).filter(t => t != tab);
-    const other = borderPod(pod);
-    withBusy(() => {
-      if (tab.pinned) {
-        const pinned = others.filter(t => t.pinned);
-        if (pinned.length) {
-          gBrowser.moveTabAfter(tab, pinned.at(-1));
-        } else if (other) {
-          gBrowser.moveTabBefore(tab, membersOf(other).find(t => t.pinned));
-        } else {
-          // The pod goes across the border now, the rest of it follows the tab.
-          for (const t of others.reverse()) {
-            gBrowser.moveTabTo(t, {tabIndex: gBrowser.pinnedTabCount});
+    if (!helper?.openLinkIn || helper.openLinkIn.tabpods) {
+      return;
+    }
+    const openLinkIn = helper.openLinkIn;
+    helper.openLinkIn = function (win, url, where, params) {
+      try {
+        if (where == "current" && params && !params.allowPinnedTabHostChange) {
+          const browser = params.targetBrowser || win?.gBrowser?.selectedBrowser;
+          if (browser && win.gBrowser.getTabForBrowser(browser)?.hasAttribute(UNPINNED_KEY)) {
+            params.allowPinnedTabHostChange = true;
           }
         }
-      } else {
-        const unpinned = others.filter(t => !t.pinned);
-        if (unpinned.length) {
-          gBrowser.moveTabBefore(tab, unpinned[0]);
-        } else if (other) {
-          gBrowser.moveTabAfter(tab, membersOf(other).at(-1));
-        } else {
-          // The pod goes across the border now, its pinned tabs go last among
-          // the pinned ones, right before the tab.
-          for (const t of others) {
-            gBrowser.moveTabTo(t, {tabIndex: gBrowser.pinnedTabCount - 1});
+      } catch (e) {}
+      return openLinkIn.call(this, win, url, where, params);
+    };
+    helper.openLinkIn.tabpods = true;
+  }
+
+  // Pins or unpins a tab of a pod within the pod. Returns false when this is
+  // left to Firefox: for tabs of no pod and for dropped tabs.
+  function pinWithinPod(tab, pin, options) {
+    const pod = podOf(tab);
+    const source = options?.metricsContext?.telemetrySource;
+    if (!pod || busy || restoring || source == (gBrowser.TabMetrics?.METRIC_SOURCE?.DRAG_AND_DROP ?? "drag")) {
+      return false;
+    }
+    const members = membersOf(pod);
+    withBusy(() => {
+      if (pin && !tab.pinned) {
+        // The pod goes to the end of the pinned tabs, this tab first.
+        pinForReal(tab);
+        for (const t of members) {
+          if (t != tab && !t.pinned) {
+            pinForReal(t);
+            setLooksUnpinned(t, true);
           }
+        }
+      } else if (pin && looksUnpinned(tab)) {
+        // The last of the pinned tabs.
+        const last = members.filter(t => t != tab && looksPinned(t)).at(-1);
+        setLooksUnpinned(tab, false);
+        if (last) {
+          gBrowser.moveTabAfter(tab, last);
+        }
+      } else if (!pin && looksPinned(tab)) {
+        const pinned = members.filter(t => t != tab && looksPinned(t));
+        if (pinned.length) {
+          // The first tab after the pinned ones.
+          gBrowser.moveTabAfter(tab, pinned.at(-1));
+          setLooksUnpinned(tab, true);
+        } else {
+          // The last pinned tab: the pod goes to the start of the regular tabs.
+          unpinForReal(members);
+        }
+      }
+    });
+    if (pod.collapsed) {
+      members.forEach(hideTab);
+    }
+    update();
+    return true;
+  }
+
+  // Brings the pods in line with the rules above after Firefox pinned or
+  // unpinned tabs itself (dropping them, restoring a session written by an
+  // older version) or a pod lost its last pinned tab.
+  function settlePods() {
+    withBusy(() => {
+      for (const tab of liveTabs()) {
+        if (looksUnpinned(tab) && (!tab.pinned || !podOf(tab))) {
+          setLooksUnpinned(tab, false);
+        } else if (looksUnpinned(tab)) {
+          unpinLook(tab);
+        }
+      }
+      for (const pod of pods.values()) {
+        const members = membersOf(pod);
+        if (members.some(looksPinned)) {
+          const regular = members.filter(t => !t.pinned);
+          for (const tab of regular) {
+            pinForReal(tab);
+            setLooksUnpinned(tab, true);
+          }
+          chain([...members.filter(looksPinned), ...members.filter(looksUnpinned)]);
+          if (pod.collapsed) {
+            regular.forEach(hideTab);
+          }
+        } else if (members.some(t => t.pinned)) {
+          // In its order, around its first regular tab if it has one.
+          const regular = members.find(t => !t.pinned);
+          unpinForReal(members.filter(t => t.pinned));
+          const before = regular ? members.slice(0, members.indexOf(regular)) : [];
+          if (before.length) {
+            gBrowser.moveTabsBefore(before, regular);
+          }
+          chain(members);
         }
       }
     });
@@ -1102,19 +1299,17 @@
       }
     }
 
-    // Pinned or unpinned tabs go next to the rest of their pod. Tabs of no pod
-    // do not join one that way; pinned or unpinned by a drop, the drop rules
-    // apply to them.
+    // Pinned or unpinned tabs stay in their pod, settlePods() puts them back.
+    // Tabs of no pod do not join one that way; pinned or unpinned by a drop,
+    // the drop rules apply to them.
     const dropped = [...(drop?.tabs || []), ...waiting];
     for (const tab of toggled) {
       if (podOf(tab)) {
-        placePinToggled(tab);
+        moved.delete(tab);
       } else if (!dropped.includes(tab)) {
         moveOutOfPod(tab);
-      } else {
-        continue;
+        moved.delete(tab);
       }
-      moved.delete(tab);
     }
 
     // The rules for tabs moved otherwise: from the tab list menu, from another
@@ -1165,6 +1360,26 @@
         changed = true;
       }
       i = j;
+    }
+
+    // A tab moved within a pinned pod is pinned or not like the tabs around
+    // it, as Firefox pins a tab dropped among pinned ones. The last pinned
+    // tab of the pod stays pinned (settlePods() puts it back among them):
+    // dragging it should not take the pod away from the pinned tabs.
+    for (const tab of [...moved, ...(drop?.tabs || [])]) {
+      const pod = podOf(tab);
+      if (!pod || !tab.pinned || tab.closing) {
+        continue;
+      }
+      const members = membersOf(pod);
+      const i = members.indexOf(tab);
+      if (looksUnpinned(tab)) {
+        if (members.slice(i + 1).some(looksPinned)) {
+          setLooksUnpinned(tab, false);
+        }
+      } else if (members.slice(0, i).some(looksUnpinned) && members.some(t => t != tab && looksPinned(t))) {
+        setLooksUnpinned(tab, true);
+      }
     }
 
     if (changed) {
@@ -1460,6 +1675,371 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Moving pods
+  //
+  // A capsule dragged along the tab strip takes its pod with it: the capsule
+  // and the visible tabs of the pod follow the pointer, and the rest of the
+  // strip makes room for them the way it does for dragged tabs. Firefox's
+  // tab dragging knows nothing of capsules, so this follows the pointer
+  // itself. A pod moves among the tabs of its kind, pinned or not (see
+  // "Pinned pods"), and only as a whole: between tabs, pods, tab groups and
+  // split views, never into them.
+
+  const DRAG_THRESHOLD = 4; // CSS pixels the pointer moves before the pod does
+  const AUTOSCROLL_ZONE = 20; // pixels at the edges of the strip that scroll it
+  const AUTOSCROLL_SPEED = 600; // pixels per second at most
+
+  /** The capsule being dragged: set on the pointer press, started once the pointer moves. */
+  let podDrag = null;
+  let clickAfterDrag = false;
+  const shiftedBoxes = new Set();
+  const dropAnimations = new Set();
+  let shiftGeneration = 0;
+
+  const scrollOf = container => container.scrollbox?.scrollLeft || 0;
+  const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // The boxes a tab strip element is drawn as: a native tab group has none of
+  // its own (display: contents), its label and tabs have.
+  function boxesOf(el) {
+    if (getComputedStyle(el).display == "contents") {
+      return [...el.children].flatMap(boxesOf);
+    }
+    return el.getBoundingClientRect().width > 0 ? [el] : [];
+  }
+
+  // The items of a tab container in blocks that move as a whole: a pod (its
+  // capsule and tabs), a tab, a native tab group or a split view. Tabs are
+  // moved before first or after last of a block; boxes are drawn from start
+  // to end, along the strip in the direction of the tabs, from the start of
+  // the scrolled content. Hidden tabs belong to no block, unless they are
+  // in a pod.
+  function stripBlocks(container, rtl) {
+    const blocks = [];
+    let podBlock = null;
+    for (const el of container.children) {
+      const pod = capsulePod(el);
+      if (pod) {
+        podBlock = {capsule: el, pod, tabs: [], boxes: [el]};
+        blocks.push(podBlock);
+        continue;
+      }
+      if (!["tab", "tab-group", "tab-split-view-wrapper"].includes(el.localName)) {
+        continue;
+      }
+      if (podBlock && el.getAttribute("tabpods") == podBlock.pod.id) {
+        if (!el.closing) {
+          podBlock.tabs.push(el);
+          podBlock.boxes.push(...boxesOf(el));
+        }
+        continue;
+      }
+      podBlock = null;
+      const boxes = el.closing ? [] : boxesOf(el);
+      if (boxes.length) {
+        blocks.push({tabs: [el], boxes});
+      }
+    }
+    const scroll = scrollOf(container);
+    return blocks
+      .filter(block => block.tabs.length)
+      .map(block => {
+        const rects = block.boxes.map(box => box.getBoundingClientRect());
+        const left = Math.min(...rects.map(r => r.left)) + scroll;
+        const right = Math.max(...rects.map(r => r.right)) + scroll;
+        return {
+          ...block,
+          first: block.tabs[0],
+          last: block.tabs.at(-1),
+          start: rtl ? -right : left,
+          end: rtl ? -left : right,
+        };
+      });
+  }
+
+  // Takes the boxes of the strip out of the dragging state, at once.
+  function clearShifts() {
+    shiftGeneration++;
+    for (const animation of dropAnimations) {
+      animation.finish();
+    }
+    dropAnimations.clear();
+    for (const box of shiftedBoxes) {
+      box.removeAttribute("tabpods-shift");
+      box.removeAttribute("tabpods-dragged");
+      box.style.transform = "";
+    }
+    shiftedBoxes.clear();
+  }
+
+  // Whether the tabs are in one horizontal row: not vertical tabs, nor Tab Mix
+  // Plus rows of tabs.
+  const singleRow = () => !tabs.verticalMode && !tabs.hasAttribute("tabmix-multibar");
+
+  function beginPodDrag(drag) {
+    const pod = capsulePod(drag.capsule);
+    const members = pod ? membersOf(pod) : [];
+    const container = drag.capsule.parentNode;
+    if (
+      !members.length ||
+      members.some(t => t.pinned != members[0].pinned) ||
+      tabs.hasAttribute("movingtab") ||
+      !singleRow()
+    ) {
+      return false;
+    }
+    clearShifts();
+    const rtl = isRtl();
+    const blocks = stripBlocks(container, rtl);
+    const own = blocks.find(b => b.capsule === drag.capsule);
+    if (!own) {
+      return false;
+    }
+    const from = blocks.indexOf(own);
+    Object.assign(drag, {
+      pod,
+      container,
+      rtl,
+      blocks,
+      own,
+      others: blocks.filter(b => b !== own),
+      from,
+      slot: from,
+      startPos: (rtl ? -1 : 1) * (drag.startX + scrollOf(container)),
+    });
+    for (const box of blocks.flatMap(b => b.boxes)) {
+      box.setAttribute("tabpods-shift", "");
+      shiftedBoxes.add(box);
+    }
+    own.boxes.forEach(box => box.setAttribute("tabpods-dragged", ""));
+    try {
+      tabs.previewPanel?.deactivate(null, {force: true});
+    } catch (e) {}
+    return true;
+  }
+
+  // Moves the dragged pod to the pointer, and the blocks it has passed out of
+  // its way. It passes a block once its edge is past the middle of the block.
+  function movePodDrag(drag) {
+    const {blocks, own, others, from} = drag;
+    const dir = drag.rtl ? -1 : 1;
+    const pos = dir * (drag.x + scrollOf(drag.container));
+    const delta = Math.min(Math.max(pos - drag.startPos, blocks[0].start - own.start), blocks.at(-1).end - own.end);
+    const middle = block => (block.start + block.end) / 2;
+    let slot = from;
+    while (slot < others.length && own.end + delta > middle(others[slot])) slot++;
+    if (slot == from) {
+      while (slot > 0 && own.start + delta < middle(others[slot - 1])) slot--;
+    }
+    drag.slot = slot;
+    const width = own.end - own.start;
+    const shift = (block, px) => {
+      for (const box of block.boxes) {
+        box.style.transform = px ? `translateX(${dir * px}px)` : "";
+      }
+    };
+    shift(own, delta);
+    others.forEach((block, i) => shift(block, i >= from && i < slot ? -width : i < from && i >= slot ? width : 0));
+  }
+
+  // Scrolls an overflowing strip while the pointer is near the edge it moves
+  // to, the faster the closer to the edge.
+  function autoScrollPodDrag(now = performance.now()) {
+    const drag = podDrag;
+    if (!drag?.started || drag.done) {
+      return;
+    }
+    drag.scrollFrame = 0;
+    const box = drag.container.scrollbox;
+    const rect = box?.getBoundingClientRect();
+    let speed = 0;
+    if (!box || box.scrollWidth - box.clientWidth < 1) {
+      // Nothing to scroll.
+    } else if (drag.x < drag.startX && drag.x < rect.left + AUTOSCROLL_ZONE) {
+      speed = -Math.min(1, (rect.left + AUTOSCROLL_ZONE - drag.x) / AUTOSCROLL_ZONE);
+    } else if (drag.x > drag.startX && drag.x > rect.right - AUTOSCROLL_ZONE) {
+      speed = Math.min(1, (drag.x - rect.right + AUTOSCROLL_ZONE) / AUTOSCROLL_ZONE);
+    }
+    if (!speed) {
+      drag.scrollTime = drag.scrollRest = 0;
+      return;
+    }
+    const elapsed = drag.scrollTime ? Math.min(now - drag.scrollTime, 50) : 16;
+    drag.scrollTime = now;
+    drag.scrollRest += (Math.sign(speed) * Math.max(Math.abs(speed) * AUTOSCROLL_SPEED, 60) * elapsed) / 1000;
+    const px = Math.trunc(drag.scrollRest);
+    if (px) {
+      drag.scrollRest -= px;
+      const before = box.scrollLeft;
+      box.scrollBy({left: px, behavior: "instant"});
+      if (box.scrollLeft == before) {
+        drag.scrollTime = drag.scrollRest = 0; // at the end
+        return;
+      }
+      movePodDrag(drag);
+    }
+    drag.scrollFrame = requestAnimationFrame(autoScrollPodDrag);
+  }
+
+  // Puts the tabs of the dragged pod where it was dropped.
+  function placePod(drag) {
+    const members = membersOf(drag.pod);
+    withBusy(() => {
+      if (drag.slot > drag.from) {
+        gBrowser.moveTabsAfter(members, drag.others[drag.slot - 1].last);
+      } else {
+        gBrowser.moveTabsBefore(members, drag.others[drag.slot].first);
+      }
+    });
+    update();
+  }
+
+  // Drops the dragged pod where it is shown, or puts it back, and lets every
+  // box slide from where it is shown into its place.
+  function endPodDrag(drag, drop) {
+    drag.done = true;
+    cancelAnimationFrame(drag.scrollFrame);
+    const boxes = drag.blocks.flatMap(b => b.boxes);
+    const shown = new Map(boxes.map(box => [box, box.getBoundingClientRect().left]));
+    clearShifts();
+    if (drop && drag.slot != drag.from) {
+      placePod(drag);
+    }
+    if (reducedMotion()) {
+      return;
+    }
+    let easing = getComputedStyle(document.documentElement).getPropertyValue("--animation-easing-function").trim();
+    const generation = shiftGeneration;
+    for (const box of boxes) {
+      const offset = box.isConnected ? shown.get(box) - box.getBoundingClientRect().left : 0;
+      if (Math.abs(offset) < 1) {
+        continue;
+      }
+      const dragged = drag.own.boxes.includes(box);
+      if (dragged) {
+        // Keep the pod above the tabs it slides over.
+        box.setAttribute("tabpods-dragged", "");
+        shiftedBoxes.add(box);
+      }
+      const keyframes = [{transform: `translateX(${offset}px)`}, {transform: "none"}];
+      let animation;
+      try {
+        animation = box.animate(keyframes, {duration: 200, easing: easing || "ease-out"});
+      } catch (e) {
+        easing = "ease-out"; // not an easing the animation API takes
+        animation = box.animate(keyframes, {duration: 200, easing});
+      }
+      dropAnimations.add(animation);
+      animation.finished.then(
+        () => {
+          dropAnimations.delete(animation);
+          if (dragged && generation == shiftGeneration) {
+            box.removeAttribute("tabpods-dragged");
+            shiftedBoxes.delete(box);
+          }
+        },
+        () => dropAnimations.delete(animation)
+      );
+    }
+  }
+
+  // The strip changed under the dragged pod: put it back.
+  function abortPodDrag() {
+    if (podDrag?.started && !podDrag.done) {
+      endPodDrag(podDrag, false);
+    }
+  }
+
+  function onPodPointer(e) {
+    if (e.type == "pointerdown") {
+      const capsule = e.button == 0 && e.isPrimary && !podDrag && e.target.closest?.(".tabpods-capsule");
+      if (capsule && capsulePod(capsule)) {
+        podDrag = {
+          capsule,
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          x: e.clientX,
+          started: false,
+          done: false,
+          scrollFrame: 0,
+          scrollTime: 0,
+          scrollRest: 0,
+        };
+        try {
+          // Keep the pointer events coming outside the capsule and the window.
+          capsule.setPointerCapture(e.pointerId);
+        } catch (ex) {
+          podDrag = null;
+        }
+      }
+      return;
+    }
+    const drag = podDrag;
+    if (!drag || e.pointerId != drag.pointerId) {
+      return;
+    }
+    switch (e.type) {
+      case "pointermove":
+        if (drag.done) {
+          return;
+        }
+        drag.x = e.clientX;
+        if (!drag.started) {
+          if (Math.abs(drag.x - drag.startX) < DRAG_THRESHOLD) {
+            return;
+          }
+          drag.started = true;
+          if (!beginPodDrag(drag)) {
+            drag.done = true; // this pod does not move
+            return;
+          }
+        }
+        movePodDrag(drag);
+        if (!drag.scrollFrame) {
+          autoScrollPodDrag();
+        }
+        return;
+      case "pointerup":
+        if (drag.started) {
+          clickAfterDrag = true;
+          setTimeout(() => (clickAfterDrag = false), 0);
+          if (!drag.done) {
+            endPodDrag(drag, true);
+          }
+        }
+        podDrag = null;
+        return;
+      case "pointercancel":
+      case "lostpointercapture":
+        abortPodDrag();
+        podDrag = null;
+    }
+  }
+
+  function onPodDragKey(e) {
+    if (e.key == "Escape" && podDrag?.started && !podDrag.done) {
+      e.preventDefault();
+      e.stopPropagation();
+      endPodDrag(podDrag, false);
+    }
+  }
+
+  // The pointer drags capsules, not the drag and drop of the browser.
+  function onCapsuleDragStart(e) {
+    if (e.target.closest?.(".tabpods-capsule")) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
+  // No tooltips over a dragged pod.
+  function onTooltipShowing(e) {
+    if (podDrag?.started && e.target.localName == "tooltip") {
+      e.preventDefault();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Actions
 
   function newPodId() {
@@ -1513,12 +2093,17 @@
   }
 
   function removeFromPods(tabList) {
+    // Tabs unpinned within a pinned pod go to the regular tabs.
+    const regular = tabList.filter(t => podOf(t) && looksUnpinned(t));
     for (const tab of tabList) {
       const pod = podOf(tab);
       if (!pod) {
         continue;
       }
       unassign(tab);
+      if (regular.includes(tab)) {
+        continue;
+      }
       // Take the tab out of the middle of its pod.
       const members = membersOf(pod);
       const all = liveTabs();
@@ -1533,13 +2118,17 @@
         });
       }
     }
+    withBusy(() => unpinForReal(regular));
     dropEmptyPods();
     saveState();
     update();
   }
 
   function ungroupPod(pod) {
-    for (const tab of membersOf(pod)) {
+    const members = membersOf(pod);
+    // Tabs unpinned within the pod go to the regular tabs.
+    withBusy(() => unpinForReal(members.filter(looksUnpinned)));
+    for (const tab of members) {
       unassign(tab);
     }
     pods.delete(pod.id);
@@ -1634,10 +2223,38 @@
     tabMenu.insertBefore(menu, document.getElementById("context_openAndOrganizeSeparator"));
 
     tabMenu.addEventListener("popupshowing", e => {
-      if (e.target == tabMenu) {
-        menu.hidden = !contextTabs().some(eligible);
+      if (e.target != tabMenu) {
+        return;
       }
+      menu.hidden = !contextTabs().some(eligible);
+      fixPinItems();
     });
+
+    // Firefox (and Tab Mix Plus, with its own attribute) offers to unpin a
+    // tab unpinned within its pod: offer to pin it. The items are fixed after
+    // whoever changed them, whatever the order of the popupshowing listeners.
+    const pinItems = ["context_pinTab", "context_unpinTab", "context_pinSelectedTabs", "context_unpinSelectedTabs"]
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+    function fixPinItems() {
+      const tab = TabContextMenu.contextTab;
+      if (tabMenu.state == "closed" || !tab || !looksUnpinned(tab)) {
+        return;
+      }
+      for (const item of pinItems) {
+        const shown = item.id.startsWith("context_pin") && item.id.includes("Selected") == !!tab.multiselected;
+        if (item.hidden == shown) {
+          item.hidden = !shown;
+        }
+        if (shown && item.hasAttribute("tabmix_hide")) {
+          item.removeAttribute("tabmix_hide");
+        }
+      }
+    }
+    const observer = new MutationObserver(fixPinItems);
+    for (const item of pinItems) {
+      observer.observe(item, {attributes: true, attributeFilter: ["hidden", "tabmix_hide"]});
+    }
 
     popup.addEventListener("popupshowing", e => {
       if (e.target != popup) return;
@@ -1810,6 +2427,8 @@
     patchSessionRestore();
     patchAllTabs();
     patchDragAndDropElements();
+    patchPinning();
+    patchHostChange();
     // A sheet of the browser document itself: a data: sheet loaded through
     // windowUtils drops chrome-only properties such as -moz-window-dragging.
     const sheet = new CSSStyleSheet();
@@ -1820,6 +2439,15 @@
 
     for (const type of ["mousedown", "mouseup", "click", "dblclick", "auxclick"]) {
       window.addEventListener(type, onCapsuleMouse, true);
+    }
+    for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel", "lostpointercapture"]) {
+      window.addEventListener(type, onPodPointer, true);
+    }
+    window.addEventListener("dragstart", onCapsuleDragStart, true);
+    window.addEventListener("keydown", onPodDragKey, true);
+    window.addEventListener("popupshowing", onTooltipShowing, true);
+    for (const type of ["TabOpen", "TabClose", "TabMove", "TabShow", "TabHide", "TabPinned", "TabUnpinned", "TabGrouped", "TabUngrouped"]) {
+      tabs.addEventListener(type, abortPodDrag);
     }
     tabs.addEventListener("TabSelect", onTabSelect);
     tabs.addEventListener("TabOpen", onTabOpen);
@@ -1838,11 +2466,15 @@
     // Firefox handles these on the tab container too and stops them there;
     // added later, these listeners run after it.
     tabs.addEventListener("dragstart", cancelDrop);
+    tabs.addEventListener("dragstart", clearShifts);
     tabs.addEventListener("dragover", onDragOver);
     tabs.addEventListener("drop", onDrop);
     tabs.addEventListener("dragend", onDragEnd);
     new MutationObserver(onMovingTabChange).observe(tabs, {attributes: true, attributeFilter: ["movingtab"]});
-    window.addEventListener("SSWindowStateBusy", () => (restoring = true));
+    window.addEventListener("SSWindowStateBusy", () => {
+      restoring = true;
+      abortPodDrag();
+    });
     window.addEventListener("SSWindowStateReady", onWindowRestored);
 
     onWindowRestored();

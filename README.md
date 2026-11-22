@@ -21,6 +21,12 @@ still tuck it away together with the rest of your work tabs.
 ## Features
 
 - Group any tabs into a pod, **pinned tabs included**.
+- A pod works like a tab strip of its own: its pinned tabs come first, then
+  the others. Unpinning a tab of a pod keeps it in the pod, right after the
+  pinned ones; pinning it puts it back among them. A pod with a pinned tab
+  stays among the pinned tabs. Pinning a tab of a pod without pinned tabs
+  takes the whole pod to the end of the pinned tabs, and unpinning the last
+  pinned tab of a pod takes the pod to the start of the regular tabs.
 - Click the capsule to collapse or expand the pod. Collapsed tabs are really
   hidden: they are skipped by Ctrl+Tab, Ctrl+PgDn and "Close Other Tabs".
 - Switching to a tab of a collapsed pod (for example from the *List all tabs*
@@ -33,6 +39,10 @@ still tuck it away together with the rest of your work tabs.
   joins its pod, and one dropped closer to the capsule stays out of pods. While
   you drag, the underline of the tab shows the pod it will join, and the
   capsules move aside together with the tabs.
+- Drag a capsule to move the whole pod: the capsule and its tabs follow the
+  pointer and the other tabs make room, as when you drag tabs. A pod moves
+  among the tabs of its kind, pinned or not, and goes between tabs, pods and
+  tab groups, never into them; Esc puts it back.
 - New tabs opened from a tab of a pod are placed after the pod, not inside it.
 - 9 colors, optional names (shown in the tooltip).
 - Unloading of inactive tabs, set per pod: a tab that was not switched to and
@@ -61,6 +71,7 @@ still tuck it away together with the rest of your work tabs.
   pod.
 - **Remove tabs:** right-click → **Pod → Remove from pod**, or drag them out.
 - **Collapse / expand:** left-click the capsule.
+- **Move a pod:** drag its capsule.
 - **Rename, recolor, unload tabs, ungroup, close all tabs of the pod, collapse
   or expand all pods:** right-click the capsule.
 
@@ -155,14 +166,17 @@ language, create the string preference `extensions.tabpods.locale` in
 - Tested with Firefox 158 on Windows 11, with and without Tab Mix Plus. Only the
   horizontal tab strip is supported, not vertical tabs.
 - Pods belong to a window. A tab moved to another window leaves its pod.
+- Pods move by their capsules only while the tabs fit in one row: not when
+  Tab Mix Plus shows them in several rows.
 - Tabs inside Firefox's own tab groups or split views cannot be put into pods.
 - Unloading sees only the media Firefox reports: a video playing without sound
   does not keep its tab loaded. Tabs are checked once a minute. Unloaded tabs
   look like tabs not restored yet after a restart; to dim them, set
   `browser.tabs.fadeOutUnloadedTabs` to `true` in `about:config`.
-- A pod with pinned and regular tabs sits on the border between the two. If
-  another pod is already there, the pinned part of the new one is shown
-  separately, with a capsule of its own; both capsules control the same pod.
+- Firefox keeps all pinned tabs before the others, so all tabs of a pod with
+  a pinned tab are pinned for Firefox: the ones unpinned within the pod only
+  look and load pages like regular tabs. *Close Other Tabs* and *Close Tabs
+  to the Right* leave them open, and add-ons see them as pinned.
 - Since this is a userChrome.js script, a big Firefox update can break it.
   Please [open an issue](https://github.com/buinsky/TabPods/issues) if it does.
 
